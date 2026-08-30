@@ -221,3 +221,91 @@ Adds to v1.0 §114, §115.
 - [ ] All public claims use "crash-consistent under the documented model," with the model
       defined; no forbidden claims present anywhere in repo/video.
 - [ ] Structural checker tolerates underfull/empty nodes (no false positives).
+
+---
+
+## PART F — NON-NEGOTIABLE INVARIANTS (I1–I10)
+
+These are not tests. They are the laws of physics of Anvil. Any change — refactor,
+rewrite, "optimization," new encoder, whatever — that violates any of I1–I10 is
+**automatically rejected**, no discussion. Every PR and every subsystem reviewer
+(v1.0 §118, Agent Group K) checks against this list first.
+
+The whole system reduces to one sentence: **uncommitted state may be garbage;
+committed state may never be.** Before the durable meta commit point, a new tree is
+merely orphaned pages. After it, it is authoritative. I1–I10 enforce that line.
+
+```
+I1.  Committed pages are NEVER modified in place.
+I2.  Metadata NEVER references a page that has not satisfied the required
+     persistence barrier (data fdatasync must precede the meta that points at it).
+I3.  The currently committed metadata slot is NEVER overwritten before the
+     alternate generation is fully published and durable.
+I4.  ACK is impossible before the durable commit point (second fdatasync returns).
+I5.  Every page reachable from the committed root is checksum-valid.
+I6.  Every leaf is at the same depth. (Fill-factor is NOT an invariant; underfull
+     and empty-but-valid nodes are legal — see C7.)
+I7.  An active snapshot can NEVER observe a page that has been overwritten or
+     reclaimed. (In v1 this holds by construction: grow-only, no reuse — C5.)
+I8.  A failed or uncommitted transaction can NEVER become partially visible.
+I9.  Recovery selects ONLY a checksum-valid committed generation; if none exists,
+     it fails loudly (never fabricates a recovered state).
+I10. Reference-model code shares NO implementation logic with the production
+     B+tree. The verifier must never ask Anvil to verify Anvil.
+```
+
+---
+
+## PART G — CANONICAL PROOF CLAIM (use this wording, verbatim)
+
+The only sanctioned way to state the result. Do not paraphrase it into anything
+stronger.
+
+- **Claim (README / video / write-up):** *"We defined a failure model in which only
+  synchronized bytes survive, then exhaustively exercised the defined persistence
+  seams and verified that every acknowledged transaction recovered to a valid
+  committed state."*
+- **The real brag (put this line in the demo):** *"When we deliberately remove a
+  required persistence barrier, the verifier catches the resulting durability
+  failure."* — i.e. show **TEST HAS TEETH**, not **TEST BIG NUMBER**. The negative
+  control (C1) is the headline moment, not the crash counter.
+- Forbidden phrasings remain forbidden (C2, v1.0 §79): "crash-safe" unqualified,
+  "proved crash safety," "can never lose data," "mathematically proven,"
+  "corruption-proof," "faster than production databases."
+
+---
+
+## PART H — SANCTIONED SCOPE (the ONLY work; everything else is bonked)
+
+Implementation proceeds in these phases and no others. This is the complete list of
+what Anvil v1 is:
+
+```
+phase 1  file / page format
+phase 2  B+tree
+phase 3  transactions + COW
+phase 4  metadata commit / recovery
+phase 5  reference model
+phase 6  fault-injecting storage backend
+phase 7  crash torture + NEGATIVE CONTROL
+phase 8  real-file SIGKILL validation
+phase 9  CLI + STDLIB.md + demo
+```
+
+**Forbidden additions (auto-reject on sight, regardless of which agent "improved"
+things).** An embedded KV engine does NOT get, in v1:
+
+- bloom filters, LSM/compaction, secondary indexes
+- a write-ahead log (Anvil is WAL-free shadow paging — C3; a WAL is an architecture
+  change, not an enhancement)
+- adaptive/ARC caches or a sophisticated buffer manager (a trivial read cache is the
+  ceiling — v1.0 §56, §57)
+- freelist reuse / page compaction (v2 only — C5)
+- an MVCC scheduler, isolation levels beyond single-writer snapshot
+- networking, an HTTP/Prometheus/metrics endpoint, auth, TLS, users/roles
+- SQL, query planning, stored procedures, scripting
+
+Rule for the swarm: **more code is not more score.** Code Quality & Idiom is 25% of
+the grade (Part A); every unrequested subsystem is surface that reads as fighting the
+stdlib and dilutes the readable core. If an agent proposes anything outside phases
+1–9, the answer is the SRS. Bonk accordingly.
