@@ -23,8 +23,15 @@ jobs:
           fi
           echo "OK: standard library only"
 
-      - name: Build (static, CGO disabled)
+      - name: Build (static, cgo disabled)
         run: CGO_ENABLED=0 go build ./...
+
+      - name: Cross-compile
+        run: |
+          for t in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            GOOS="${t%/*}" GOARCH="${t#*/}" CGO_ENABLED=0 go build ./... || exit 1
+            echo "OK $t"
+          done
 
       - name: gofmt
         run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
@@ -35,9 +42,12 @@ jobs:
       - name: Tests with race detector
         run: go test -race ./...
 
-      - name: Crash torture (100k cycles)
+      - name: Crash torture (100k cycles, Linux fdatasync path)
         run: go run ./cmd/anvil torture --cycles 100000
 
       - name: Negative control (verifier must have teeth)
         # Exits 0 only if removing a durability barrier makes the harness FAIL.
         run: go run ./cmd/anvil torture --negative-control --cycles 500
+
+      - name: Benchmark
+        run: go run ./cmd/anvil bench --keys 100000 --seq 2000 --reads 100000

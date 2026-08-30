@@ -1,0 +1,19 @@
+ANVIL CRASH TORTURE
+
+seed:                    430916313
+cycles completed:        1
+crashes injected:        1
+recovery failures:       1
+acked writes lost:       0
+partial txns observed:   0
+invariant violations:    0
+
+fault seams exercised:
+  before_meta_sync     1
+
+RESULT: FAIL
+  cycle=0 seam=before_meta_sync style=persist-meta-only
+  detail: recovery open failed: anvil: database corrupt
+
+EXPECTED FAILURE: with the pre-meta data barrier removed, the
+verifier caught the durability violation. The test has teeth.

@@ -1,0 +1,9 @@
+# compiled binaries
+/anvil
+/anvil.exe
+
+# local databases
+*.anvil
+
+# verification output (docs/benchmarks/ holds the committed evidence)
+/results/

@@ -1,0 +1,7 @@
+$ cat go.mod
+module anvil
+
+go 1.27
+
+$ go list -m all
+anvil

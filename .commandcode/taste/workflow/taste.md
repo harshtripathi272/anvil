@@ -1,0 +1,10 @@
+# Workflow — research & ideation standards
+
+- Search first for anything time-sensitive (current repos, versions, package capabilities, event winners, live products) — prioritize official pages, actual GitHub repositories, Devpost, docs, and writeups from the creators; avoid SEO listicles and "top N ideas" articles. Do not answer such questions from pretrained memory. Confidence: 0.9
+- When citing an existing project, give its actual repository/project URL, and inspect real sources (READMEs, architecture docs, issues, commit history) rather than relying only on articles describing the project. Confidence: 0.9
+- Never invent nonexistent capabilities: if the platform/stdlib/toolchain genuinely lacks something, state the gap plainly ("no equivalent — implement from scratch or remove the feature") instead of hand-waving or guessing. Confidence: 0.9
+- When a proposed design clearly derives from existing systems, name the real-world inspirations explicitly — don't pretend the work is original when the architecture comes from somewhere. Confidence: 0.85
+- When generating ideas, demand deep, systems-level sophistication: reject anything optimized for "easy" or "beginner friendly", CRUD apps, toy parsers, one-algorithm CLIs, and concepts whose only novelty is a wrapper or a gimmick. The proposal must be genuinely useful even if the novelty angle is removed. Confidence: 0.9
+- The core deliverable comes first: do not chase peripheral bonuses, metrics, or optimization if they damage the main product. Confidence: 0.8
+- Funnel ideas aggressively: generate many candidates, eliminate harshly into ranked tiers with explicit rejects (e.g. S/A/B/DELETE buckets), and converge the final deliverable itself (top-20 → top-10 → top-5 → top-3 → single pick) rather than presenting an unranked pile. Confidence: 0.85
+- Persist substantial in-chat deliverables (research reports, long analyses, final recommendations) as a markdown file in the project's working directory (e.g. `RESEARCH.md` at repo root) — the user wants the full artifact saved to disk, not only delivered in chat. Confidence: 0.6
