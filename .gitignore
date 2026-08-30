@@ -7,3 +7,6 @@
 
 # verification output (docs/benchmarks/ holds the committed evidence)
 /results/
+
+# local tooling
+/.commandcode/
