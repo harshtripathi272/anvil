@@ -3,14 +3,14 @@ package main
 import (
 	"fmt"
 
-	"anvil"
+	"github.com/harshtripathi272/anvil/engine"
 )
 
 func cmdCreate(args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: anvil create <db>")
 	}
-	db, err := anvil.Open(args[0])
+	db, err := engine.Open(args[0])
 	if err != nil {
 		return err
 	}
@@ -23,7 +23,7 @@ func cmdPut(args []string) error {
 	if len(args) != 3 {
 		return fmt.Errorf("usage: anvil put <db> <key> <value>")
 	}
-	db, err := anvil.Open(args[0])
+	db, err := engine.Open(args[0])
 	if err != nil {
 		return err
 	}
@@ -39,13 +39,14 @@ func cmdGet(args []string) error {
 	if len(args) != 2 {
 		return fmt.Errorf("usage: anvil get <db> <key>")
 	}
-	db, err := anvil.Open(args[0], anvil.WithReadOnly())
+	db, err := engine.Open(args[0], engine.WithReadOnly())
 	if err != nil {
 		return err
 	}
 	defer db.Close()
+
 	v, err := db.Get([]byte(args[1]))
-	if err == anvil.ErrNotFound {
+	if err == engine.ErrNotFound {
 		fmt.Println("NOT FOUND")
 		return nil
 	}
@@ -56,11 +57,11 @@ func cmdGet(args []string) error {
 	return nil
 }
 
-func cmdDel(args []string) error {
+func cmdDelete(args []string) error {
 	if len(args) != 2 {
-		return fmt.Errorf("usage: anvil del <db> <key>")
+		return fmt.Errorf("usage: anvil delete <db> <key>")
 	}
-	db, err := anvil.Open(args[0])
+	db, err := engine.Open(args[0])
 	if err != nil {
 		return err
 	}
@@ -76,7 +77,7 @@ func cmdScan(args []string) error {
 	if len(args) < 1 || len(args) > 2 {
 		return fmt.Errorf("usage: anvil scan <db> [prefix]")
 	}
-	db, err := anvil.Open(args[0], anvil.WithReadOnly())
+	db, err := engine.Open(args[0], engine.WithReadOnly())
 	if err != nil {
 		return err
 	}
@@ -110,18 +111,19 @@ func cmdInfo(args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: anvil info <db>")
 	}
-	db, err := anvil.Open(args[0], anvil.WithReadOnly())
+	db, err := engine.Open(args[0], engine.WithReadOnly())
 	if err != nil {
 		return err
 	}
 	defer db.Close()
+
 	gen, root, pages := db.Info()
-	fmt.Printf("ANVIL INFO\n\n")
-	fmt.Printf("format version:   %d\n", anvil.FormatVersion)
-	fmt.Printf("page size:        %d\n", anvil.PageSize)
-	fmt.Printf("generation:       %d\n", gen)
-	fmt.Printf("root page:        %d\n", root)
-	fmt.Printf("pages allocated:  %d\n", pages)
+	fmt.Printf("ANVIL INFO  %s\n\n", args[0])
+	fmt.Printf("  format version   %d\n", engine.FormatVersion)
+	fmt.Printf("  page size        %d bytes\n", engine.PageSize)
+	fmt.Printf("  generation       %d\n", gen)
+	fmt.Printf("  root page        %d\n", root)
+	fmt.Printf("  pages allocated  %d\n", pages)
 	return nil
 }
 
@@ -129,27 +131,25 @@ func cmdCheck(args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: anvil check <db>")
 	}
-	db, err := anvil.Open(args[0], anvil.WithReadOnly())
+	db, err := engine.Open(args[0], engine.WithReadOnly())
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
+	fmt.Printf("ANVIL CHECK  %s\n\n", args[0])
 	rep, err := db.Check()
-	fmt.Printf("ANVIL CHECK\n\n")
 	if err != nil {
-		fmt.Printf("RESULT: FAIL\n  %v\n", err)
-		return err
+		fmt.Printf("  RESULT: FAIL\n  %v\n", err)
+		return fmt.Errorf("structural check failed")
 	}
-	fmt.Printf("metadata:              OK\n")
-	fmt.Printf("root:                  OK\n")
-	fmt.Printf("pages checked:         %d\n", rep.PagesChecked)
-	fmt.Printf("leaf depth:            %d\n", rep.LeafDepth)
-	fmt.Printf("keys:                  %d\n", rep.Keys)
-	fmt.Printf("checksum failures:     0\n")
-	fmt.Printf("ordering violations:   0\n")
-	fmt.Printf("leaf-depth violations: 0\n\n")
-	fmt.Printf("RESULT: PASS\n")
+	fmt.Printf("  metadata               OK\n")
+	fmt.Printf("  reachable pages        %d, all checksums valid\n", rep.PagesChecked)
+	fmt.Printf("  keys                   %d\n", rep.Keys)
+	fmt.Printf("  leaf depth             %d (uniform)\n", rep.LeafDepth)
+	fmt.Printf("  ordering violations    0\n")
+	fmt.Printf("  dangling references    0\n\n")
+	fmt.Printf("  RESULT: PASS\n")
 	return nil
 }
 

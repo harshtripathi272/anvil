@@ -1,4 +1,4 @@
-package anvil
+package engine
 
 // ReadTx is a read-only snapshot transaction. It observes the committed root
 // captured at BeginRead and never sees a later or partial commit (SRS §22, §I8).
@@ -191,6 +191,23 @@ func (tx *WriteTx) Delete(key []byte) error {
 // Scan returns an iterator over the transaction's working tree.
 func (tx *WriteTx) Scan(start, end []byte) *Iterator {
 	return &Iterator{c: newCursor(tx, tx.root, start), end: cloneOrNil(end)}
+}
+
+// CommitSeams are the persistence boundaries of the commit protocol, in the
+// order they occur. A checkpoint hook installed with WithCheckpoint is called
+// at each one, which is how the verification harness enumerates crash points.
+//
+// These are I/O-operation boundaries, not arbitrary instruction boundaries.
+var CommitSeams = []string{
+	"before_data_write",
+	"after_data_write",
+	"before_data_sync",
+	"after_data_sync",
+	"before_meta_write",
+	"after_meta_write",
+	"before_meta_sync",
+	"after_meta_sync",
+	"before_ack",
 }
 
 // Commit publishes all staged pages atomically. The ordering is the core

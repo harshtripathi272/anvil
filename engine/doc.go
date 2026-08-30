@@ -1,6 +1,6 @@
 /*
-Package anvil is a crash-safe embedded transactional key/value storage engine
-built entirely from the Go standard library.
+Package engine implements Anvil: a crash-consistent embedded transactional
+key/value storage engine built entirely from the Go standard library.
 
 Anvil stores data in a copy-on-write B+tree over a single file. A write never
 modifies a committed page: it copies the path from root to leaf into fresh
@@ -22,7 +22,7 @@ commit record, so recovery is generation selection rather than replay.
 
 # Usage
 
-	db, err := anvil.Open("data.anvil")
+	db, err := engine.Open("data.anvil")
 	if err != nil {
 		return err
 	}
@@ -55,4 +55,4 @@ Version 1 is single-writer with many concurrent readers, allocates pages
 grow-only (no space reclamation), and bounds keys to 1 KiB and key+value to
 roughly 2 KiB.
 */
-package anvil
+package engine

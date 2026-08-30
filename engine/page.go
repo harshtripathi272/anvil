@@ -1,4 +1,4 @@
-package anvil
+package engine
 
 import (
 	"encoding/binary"
@@ -12,6 +12,10 @@ const (
 	PageSize = 4096
 	// FormatVersion is the on-disk format version this build reads and writes.
 	FormatVersion = formatVersion
+	// PageHeaderSize is the fixed per-page header length in bytes. Payload
+	// begins at this offset, which lets verification tooling target the payload
+	// of a page without depending on the rest of the format.
+	PageHeaderSize = headerSize
 	// headerSize is the fixed per-page header length.
 	headerSize = 32
 	// payloadMax is the maximum bytes of payload a page can hold.

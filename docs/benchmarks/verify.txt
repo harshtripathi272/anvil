@@ -1,0 +1,16 @@
+ANVIL VERIFY  seed 430916313
+
+  PASS  model equivalence    40000 operations, 350 keys, 0 mismatches
+                             expected: matches an independent reference model (739ms)
+  PASS  concurrency          3000 commits, 8 readers, 2093 snapshots, 0 partial reads
+                             expected: no reader observes a partial transaction (296ms)
+  PASS  crash torture        100000 crashes across 9 seams, 0 lost, 0 violations
+                             expected: 0 acknowledged writes lost, 0 invariant violations (1m47.778s)
+  PASS  negative control     durability violation correctly detected: recovery open failed: anvil: database corrupt
+                             expected: harness detects a removed durability barrier (0s)
+  PASS  process kill         killed at generation 1137; 1136 acknowledged keys intact, 7 pages valid
+                             expected: recovers cleanly after SIGKILL on a real file (272ms)
+
+  5 checks in 1m49.085s
+
+  RESULT: PASS

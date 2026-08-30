@@ -1,6 +1,10 @@
-package anvil
+package verification
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/harshtripathi272/anvil/engine"
+)
 
 // TestTortureStandard is the primary durability proof: clean crashes injected
 // round-robin across every commit seam must always recover to a valid committed
@@ -70,7 +74,7 @@ func TestMetadataCorruptionFallback(t *testing.T) {
 	if !s.CorruptDurablePage(newestTx % 2) {
 		t.Fatal("failed to corrupt newest meta")
 	}
-	db2, err := openOn(s, false, config{})
+	db2, err := engine.OpenStorage(s)
 	if err != nil {
 		t.Fatalf("should have fallen back to previous generation, got: %v", err)
 	}
@@ -78,7 +82,7 @@ func TestMetadataCorruptionFallback(t *testing.T) {
 	if v, err := db2.Get([]byte("a")); err != nil || string(v) != "1" {
 		t.Fatalf("fallback lost a: %q %v", v, err)
 	}
-	if _, err := db2.Get([]byte("b")); err != ErrNotFound {
+	if _, err := db2.Get([]byte("b")); err != engine.ErrNotFound {
 		t.Fatalf("fallback should predate b: %v", err)
 	}
 	if _, err := db2.Check(); err != nil {
@@ -91,7 +95,7 @@ func TestMetadataCorruptionFallback(t *testing.T) {
 	if !s.CorruptDurablePage(prevTx % 2) {
 		t.Fatal("failed to corrupt previous meta")
 	}
-	if _, err := openOn(s, false, config{}); err == nil {
-		t.Fatal("expected ErrCorrupt when both meta slots are damaged")
+	if _, err := engine.OpenStorage(s); err == nil {
+		t.Fatal("expected engine.ErrCorrupt when both meta slots are damaged")
 	}
 }

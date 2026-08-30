@@ -1,11 +1,11 @@
 # Anvil
 
-**A crash-safe embedded key/value database, built entirely from the Go standard
-library — and proven by destruction.**
+**A crash-consistent embedded key/value database, built entirely from the Go
+standard library — and proven by destruction.**
 
 Anvil is a transactional storage engine you link into your program: no server,
 no daemon, no driver, no dependencies. It keeps data in a copy-on-write B+tree
-over a single file, and it is designed so that killing the process at the most
+over a single file, and it is built so that killing the process at the most
 dangerous moment of a commit still leaves a valid database with every
 acknowledged transaction intact.
 
@@ -19,29 +19,35 @@ catches the failure.
 > exhaustively exercised the defined persistence seams and verified that every
 > acknowledged transaction recovered to a valid committed state.
 
+## Demo
+
+<!-- TODO: replace with the published demo URL once the video is uploaded. -->
+**[Watch the 5-minute demo](DEMO_VIDEO_URL_PENDING)** — recording notes and the
+shot list are in [docs/DEMO.md](docs/DEMO.md).
+
 ---
 
 ## Zero dependencies
 
 ```console
 $ cat go.mod
-module anvil
-go 1.27                    # no require block
+module github.com/harshtripathi272/anvil
+go 1.27                                     # no require block
 
 $ go list -m all
-anvil                      # no third-party modules
+github.com/harshtripathi272/anvil           # no third-party modules
 
-$ CGO_ENABLED=0 go build ./...    # one command, static binary, no cgo
+$ CGO_ENABLED=0 go build ./...              # one command, static, no cgo
 ```
 
 Anvil replaces an embedded-database dependency — bbolt, LMDB, BadgerDB, or
-SQLite, several of which drag in cgo and a C toolchain. See
-**[STDLIB.md](STDLIB.md)** for the capability-by-capability mapping.
+SQLite, several of which drag in cgo and a C toolchain. All 14 substitutions are
+itemized in **[STDLIB.md](STDLIB.md)**.
 
 ## Quickstart
 
 ```console
-$ go build -o anvil ./cmd/anvil
+$ go build -o anvil ./cli
 
 $ ./anvil create data.anvil
 $ ./anvil put   data.anvil user:1 lakshya
@@ -53,33 +59,67 @@ user:1	lakshya
 user:2	harsh
 (2 keys)
 $ ./anvil check data.anvil
-RESULT: PASS
+  RESULT: PASS
 ```
 
-### See the proof yourself
+## One CLI
+
+Everything — the database and its proof — is behind a single command.
 
 ```console
-$ ./anvil torture --cycles 100000     # kill at every commit seam, verify recovery
-crashes injected:        100000
-acked writes lost:       0
-invariant violations:    0
-RESULT: PASS
+$ anvil --help
 
-$ ./anvil torture --negative-control  # remove a barrier — MUST fail
-RESULT: FAIL
-  detail: recovery open failed: anvil: database corrupt
-EXPECTED FAILURE: the verifier caught the durability violation. The test has teeth.
+database:
+  create    <db>                 create an empty database
+  put       <db> <key> <value>   write a key/value pair
+  get       <db> <key>           read a value
+  delete    <db> <key>           delete a key
+  scan      <db> [prefix]        list keys in order
+  info      <db>                 show generation, root page, size
+  check     <db>                 verify structural invariants
+
+verification:
+  verify    [flags]              run the complete verification suite
+  torture   [flags]              crash the engine at every commit seam
+
+benchmark:
+  bench     [flags]              measure write, read, scan and recovery
 ```
 
-The second command is the important one. A crash test that only kills processes
+`anvil verify` runs the whole evidence set in one shot — model equivalence,
+concurrency, crash torture, the negative control, and a real process kill:
+
+```console
+$ anvil verify
+
+  PASS  model equivalence    40000 operations, 350 keys, 0 mismatches
+  PASS  concurrency          3000 commits, 8 readers, 1934 snapshots, 0 partial reads
+  PASS  crash torture        100000 crashes across 9 seams, 0 lost, 0 violations
+  PASS  negative control     durability violation correctly detected
+  PASS  process kill         killed at generation 1308; 1307 acknowledged keys intact
+
+  RESULT: PASS
+```
+
+The fourth line is the one that matters. A crash test that only kills processes
 would pass even with every `fsync` deleted, because the page cache serves the
-data back. Anvil's harness is calibrated to fail when durability is actually
-broken.
+data back. So the harness is calibrated: remove a required durability barrier
+and it must fail.
+
+```console
+$ anvil torture --negative-control
+  RESULT: FAIL
+    recovery open failed: anvil: database corrupt
+
+  EXPECTED FAILURE: the verifier caught the resulting data loss. The test has teeth.
+```
 
 ## Library API
 
 ```go
-db, err := anvil.Open("data.anvil")
+import "github.com/harshtripathi272/anvil/engine"
+
+db, err := engine.Open("data.anvil")
 if err != nil {
 	return err
 }
@@ -139,47 +179,60 @@ Anvil is **crash-consistent under a documented storage and failure model**:
 Anvil does not claim to be "crash-safe" unqualified, to never lose data, to be
 mathematically proven, or to be faster than any production database.
 
-**v1 limits:** keys ≤ 1 KiB and key+value ≤ ~2 KiB; single writer with many
-readers; grow-only allocation (no space reclamation yet); no WAL, SQL, secondary
-indexes, or networking.
+## Benchmarks
 
-Every claim, its evidence, and every known gap:
-**[VERIFICATION.md](VERIFICATION.md)**.
+Real file, `fdatasync` per commit, 100,000 keys × 16-byte values, windows/amd64:
 
-## Verify everything yourself
+| Operation | Result |
+|---|---|
+| Batched write (1,000 ops/txn) | **225.8 K ops/s** |
+| Single-commit write | 282 µs (2 `fdatasync` per commit) |
+| Random point read | 20 µs · 49.2 K ops/s |
+| Full scan | **15.42 M keys/s** |
+| Recovery (reopen) | < 1 ms |
+
+Performance is not a competition claim; single-commit throughput is fsync-bound
+by design. Full evidence: **[VERIFICATION.md](VERIFICATION.md)**.
+
+## Reproduce everything
 
 ```console
 $ ./scripts/verify.sh
 ```
 
-Runs all eight checks — dependency proof, build, cross-compile, gofmt/vet, the
-test suite, crash torture, the negative control, and the benchmark — and writes
-raw evidence to `results/`. A committed run lives in
+Nine checks: dependency proof, static build, cross-compile, gofmt, vet, the race
+test suite, the full verification suite, the negative control, and the
+benchmark. Raw evidence lands in `results/`; a committed run is in
 [`docs/benchmarks/`](docs/benchmarks/).
+
+The script owns only what needs the Go toolchain and delegates the rest to
+`anvil verify`, so the shell and the CLI can never test different things.
 
 ## Repository layout
 
 ```
-*.go                  the engine (one flat package, as bbolt and LMDB do)
-  page.go             page format, encoding, checksums, metadata
-  btree.go            copy-on-write B+tree, splits, cursor
-  tx.go               transactions and the commit protocol
-  db.go               open, recovery, generation selection
-  storage.go          Storage interface + real file backend
-  faultstorage.go     simulated stable storage (only synced bytes survive)
-  torture.go          crash-torture harness + negative control
-  checker.go          structural invariant verifier
-cmd/anvil/            CLI: store commands, torture, bench
-scripts/verify.sh     reproduce every claim in one command
-docs/
-  ARCHITECTURE.md     how the engine works
-  DEMO.md             5-minute demo script
-  benchmarks/         raw evidence from the last full verification run
-  internal/           project spec and research notes (not part of the product)
-VERIFICATION.md       source of truth: claims, tests, results, known gaps
-STDLIB.md             capability → standard library mapping
-deps-proof.txt        generated proof of an empty dependency manifest
+engine/            the storage engine (page format, B+tree, transactions, recovery)
+verification/      fault injection, crash torture, model checking, benchmarks
+cli/               the single `anvil` command
+scripts/verify.sh  canonical reproducibility entry point
+docs/              ARCHITECTURE.md, DEMO.md, benchmarks/, internal/
+extra/             auxiliary material, not part of the product
+README.md · STDLIB.md · VERIFICATION.md · LICENSE · deps-proof.txt
 ```
+
+Tests live beside what they test: `engine/` holds the white-box page-format
+tests, `verification/` holds everything that exercises the engine from outside.
+Verification logic lives in ordinary files (`model.go`, `suite.go`, …) that both
+`go test` and `anvil verify` call, so the two cannot drift apart.
+
+## Limitations (v1)
+
+- Keys ≤ 1 KiB; key + value ≤ ~2 KiB (no overflow pages).
+- Single writer, many concurrent readers.
+- Grow-only allocation: freed pages are not reused, so the file grows with
+  history. Reclamation is deliberately deferred to keep the commit protocol —
+  the part that must be correct — small and verifiable.
+- No write-ahead log (by design), SQL, secondary indexes, or networking.
 
 ## Prior art
 

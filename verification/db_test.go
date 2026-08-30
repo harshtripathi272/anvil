@@ -1,4 +1,4 @@
-package anvil
+package verification
 
 import (
 	"bytes"
@@ -7,13 +7,14 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
+
+	"github.com/harshtripathi272/anvil/engine"
 )
 
 // openFault opens a DB over a FaultStorage, initializing if empty.
-func openFault(t *testing.T, s *FaultStorage) *DB {
+func openFault(t *testing.T, s *FaultStorage) *engine.DB {
 	t.Helper()
-	np, _ := s.NumPages()
-	db, err := openOn(s, np == 0, config{})
+	db, err := engine.OpenStorage(s)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -44,12 +45,12 @@ func TestBasicPutGetDelete(t *testing.T) {
 	if err := db.Delete([]byte("name")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Get([]byte("name")); err != ErrNotFound {
-		t.Fatalf("expected ErrNotFound, got %v", err)
+	if _, err := db.Get([]byte("name")); err != engine.ErrNotFound {
+		t.Fatalf("expected engine.ErrNotFound, got %v", err)
 	}
 	// missing
-	if _, err := db.Get([]byte("nope")); err != ErrNotFound {
-		t.Fatalf("expected ErrNotFound, got %v", err)
+	if _, err := db.Get([]byte("nope")); err != engine.ErrNotFound {
+		t.Fatalf("expected engine.ErrNotFound, got %v", err)
 	}
 }
 
@@ -165,7 +166,7 @@ func TestDeleteHeavyStaysConsistent(t *testing.T) {
 	}
 	for i := 0; i < N; i++ {
 		_, err := db.Get([]byte(fmt.Sprintf("k%06d", i)))
-		if i%2 == 0 && err != ErrNotFound {
+		if i%2 == 0 && err != engine.ErrNotFound {
 			t.Fatalf("k%06d should be deleted, got %v", i, err)
 		}
 		if i%2 == 1 && err != nil {
@@ -178,7 +179,7 @@ func TestReopenFileBackend(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.anvil")
 
-	db, err := Open(path)
+	db, err := engine.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +191,7 @@ func TestReopenFileBackend(t *testing.T) {
 	db.Close()
 
 	// Reopen and verify.
-	db2, err := Open(path)
+	db2, err := engine.Open(path)
 	if err != nil {
 		t.Fatalf("reopen: %v", err)
 	}
@@ -201,7 +202,7 @@ func TestReopenFileBackend(t *testing.T) {
 			t.Fatalf("after reopen k%04d = %q,%v", i, v, err)
 		}
 	}
-	if err := verifyStructure(db2); err != nil {
+	if _, err := db2.Check(); err != nil {
 		t.Fatalf("structure check: %v", err)
 	}
 }
@@ -224,7 +225,7 @@ func TestSnapshotIsolation(t *testing.T) {
 	if err != nil || string(v) != "1" {
 		t.Fatalf("snapshot leaked: x=%q,%v (want 1)", v, err)
 	}
-	if _, err := rtx.Get([]byte("extra0001")); err != ErrNotFound {
+	if _, err := rtx.Get([]byte("extra0001")); err != engine.ErrNotFound {
 		t.Fatalf("snapshot saw future key: %v", err)
 	}
 	rtx.Close()
@@ -255,7 +256,7 @@ func TestAtomicMultiKeyTransaction(t *testing.T) {
 	if string(a) != "900" || string(b) != "100" {
 		t.Fatalf("multi-key commit wrong: A=%q B=%q", a, b)
 	}
-	if _, err := db.Get([]byte("pending:7")); err != ErrNotFound {
+	if _, err := db.Get([]byte("pending:7")); err != engine.ErrNotFound {
 		t.Fatalf("pending:7 should be gone: %v", err)
 	}
 }
@@ -271,7 +272,7 @@ func TestRollbackDiscards(t *testing.T) {
 	if string(v) != "committed" {
 		t.Fatalf("rollback failed: k=%q", v)
 	}
-	if _, err := db.Get([]byte("k2")); err != ErrNotFound {
+	if _, err := db.Get([]byte("k2")); err != engine.ErrNotFound {
 		t.Fatalf("rollback leaked k2: %v", err)
 	}
 }

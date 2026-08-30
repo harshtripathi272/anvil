@@ -1,22 +1,21 @@
-ANVIL CRASH TORTURE
+ANVIL TORTURE  seed 430916313
 
-seed:                    430916313
-cycles completed:        100000
-crashes injected:        100000
-recovery failures:       0
-acked writes lost:       0
-partial txns observed:   0
-invariant violations:    0
+  cycles completed       100000
+  crashes injected       100000
+  recovery failures      0
+  acked writes lost      0
+  partial txns observed  0
+  invariant violations   0
 
-fault seams exercised:
-  after_data_sync      11111
-  after_data_write     11111
-  after_meta_sync      11111
-  after_meta_write     11111
-  before_ack           11111
-  before_data_sync     11111
-  before_data_write    11112
-  before_meta_sync     11111
-  before_meta_write    11111
+  commit seams exercised
+    after_data_sync      11111
+    after_data_write     11111
+    after_meta_sync      11111
+    after_meta_write     11111
+    before_ack           11111
+    before_data_sync     11111
+    before_data_write    11112
+    before_meta_sync     11111
+    before_meta_write    11111
 
-RESULT: PASS
+  RESULT: PASS

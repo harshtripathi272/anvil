@@ -8,11 +8,11 @@ library alone.
 
 ```console
 $ cat go.mod
-module anvil
+module github.com/harshtripathi272/anvil
 go 1.27          # no require block
 
 $ go list -m all
-anvil            # no third-party modules
+github.com/harshtripathi272/anvil    # no third-party modules
 ```
 
 **Package killed: the embedded database itself** — along with, in the cgo cases,
@@ -26,20 +26,20 @@ Each row is a thing you would normally import, and what replaced it.
 
 | # | Would normally use | Standard library instead | Where |
 |---|---|---|---|
-| 1 | An embedded KV store (`bbolt`, `badger`, `go.etcd.io/bbolt`) | The whole engine: `os` file I/O + a hand-built B+tree | `btree.go`, `tx.go` |
-| 2 | A cgo SQLite/LMDB binding | `os.File.WriteAt` / `ReadAt` at page offsets — no cgo, `CGO_ENABLED=0` | `storage.go` |
-| 3 | A durability/fsync helper library | `syscall.Fdatasync` on Linux; `os.File.Sync` elsewhere, selected by build tag | `sync_linux.go`, `sync_other.go` |
-| 4 | A binary serialization library (`protobuf`, `gob`, `msgpack`) | `encoding/binary` — explicit little-endian, fixed 32-byte page header | `page.go` |
-| 5 | A checksum/hash library (`xxhash`, `murmur3`) | `hash/crc32` with the Castagnoli table (CRC-32C) for torn-page detection | `page.go` |
-| 6 | A sorted-container / btree package (`google/btree`, `tidwall/btree`) | `bytes.Compare` + `sort.Search` over hand-encoded pages | `btree.go` |
-| 7 | A concurrency toolkit | `sync.Mutex` / `sync.RWMutex`: single writer, many snapshot readers | `db.go`, `tx.go` |
-| 8 | An error-wrapping library (`pkg/errors`) | `errors.New` / `errors.Is` / `errors.Join` — 10 classifiable error types | `errors.go` |
-| 9 | A CLI framework (`cobra`, `urfave/cli`) | `flag.NewFlagSet` per subcommand + a `switch` on `os.Args[1]` | `cmd/anvil` |
-| 10 | A test framework (`testify`, `ginkgo`) | `testing` — 19 tests, table-driven, plain assertions | `*_test.go` |
-| 11 | A property/fuzz library (`gopter`, `quick`) | `math/rand` with explicit seeds; 40,000-op randomized model comparison | `model_test.go` |
-| 12 | A fault-injection tool (**LazyFS**, ALICE, `charybdefs`) | A `Storage` interface + an in-memory backend where only synced bytes survive | `faultstorage.go` |
-| 13 | A reference/oracle database to diff against | A plain Go `map` + `sort` — deliberately different code from the B+tree | `model_test.go` |
-| 14 | A process-supervision library | `os/exec` self re-exec, then kill the child mid-commit | `real_kill_test.go` |
+| 1 | An embedded KV store (`bbolt`, `badger`, `go.etcd.io/bbolt`) | The whole engine: `os` file I/O + a hand-built B+tree | `engine/btree.go`, `engine/tx.go` |
+| 2 | A cgo SQLite/LMDB binding | `os.File.WriteAt` / `ReadAt` at page offsets — no cgo, `CGO_ENABLED=0` | `engine/storage.go` |
+| 3 | A durability/fsync helper library | `syscall.Fdatasync` on Linux; `os.File.Sync` elsewhere, selected by build tag | `engine/sync_linux.go`, `engine/sync_other.go` |
+| 4 | A binary serialization library (`protobuf`, `gob`, `msgpack`) | `encoding/binary` — explicit little-endian, fixed 32-byte page header | `engine/page.go` |
+| 5 | A checksum/hash library (`xxhash`, `murmur3`) | `hash/crc32` with the Castagnoli table (CRC-32C) for torn-page detection | `engine/page.go` |
+| 6 | A sorted-container / btree package (`google/btree`, `tidwall/btree`) | `bytes.Compare` + `sort.Search` over hand-encoded pages | `engine/btree.go` |
+| 7 | A concurrency toolkit | `sync.Mutex` / `sync.RWMutex`: single writer, many snapshot readers | `engine/db.go`, `engine/tx.go` |
+| 8 | An error-wrapping library (`pkg/errors`) | `errors.New` / `errors.Is` / `errors.Join` — 10 classifiable error types | `engine/errors.go` |
+| 9 | A CLI framework (`cobra`, `urfave/cli`) | `flag.NewFlagSet` per subcommand + a `switch` on `os.Args[1]` | `cli` |
+| 10 | A test framework (`testify`, `ginkgo`) | `testing` — 22 tests, table-driven, plain assertions | `*_test.go` |
+| 11 | A property/fuzz library (`gopter`, `quick`) | `math/rand` with explicit seeds; 40,000-op randomized model comparison | `verification/model.go` |
+| 12 | A fault-injection tool (**LazyFS**, ALICE, `charybdefs`) | A `Storage` interface + an in-memory backend where only synced bytes survive | `verification/faultstorage.go` |
+| 13 | A reference/oracle database to diff against | A plain Go `map` + `sort` — deliberately different code from the B+tree | `verification/model.go` |
+| 14 | A process-supervision library | `os/exec` self re-exec, then kill the child mid-commit | `verification/suite.go` |
 
 **Total: 14 substitutions**, of which 3 (rows 1, 2, 12) replace things that
 normally require either cgo or a separate installed tool.

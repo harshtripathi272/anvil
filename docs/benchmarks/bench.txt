@@ -1,14 +1,14 @@
-ANVIL BENCH   real file backend, fdatasync per commit, windows/amd64
+ANVIL BENCH  real file, fdatasync per commit, windows/amd64
 
-dataset:         100000 keys x 16-byte values, batch=1000
+  dataset            100000 keys x 16-byte values, batch 1000
 
-batched write:   355ms       281.9 K ops/s
-single commit:   217µs       4.6 K ops/s  (2 fdatasync/commit)
-random read:     23µs        43.9 K ops/s
-full scan:       9ms         11.53 M ops/s  (102000 keys)
-recovery open:   0s          (generation 2101)
-check:           9ms         (809 pages, 102000 keys, leaf depth 2)
-file size:       27.7 MB  (7084 pages incl. copy-on-write history)
+  batched write      432ms      231.6 K ops/s
+  single commit      195µs      5.1 K ops/s  (2 fdatasync per commit)
+  random read        20µs       50.8 K ops/s
+  full scan          7ms        15.32 M ops/s  (102000 keys)
+  recovery open      0s         (generation 2101)
+  structural check   7ms        (809 pages, 102000 keys, leaf depth 2)
+  file size          27.7 MB   (7084 pages incl. copy-on-write history)
 
-note: performance is not a competition claim. Single-commit throughput is
-      fsync-bound by design; correctness comes first.
+  Performance is not a competition claim. Single-commit throughput is
+  fsync-bound by design; correctness comes first.

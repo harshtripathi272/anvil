@@ -3,16 +3,19 @@
 **The single source of truth for what Anvil claims, what evidence supports each
 claim, and what is explicitly *not* claimed.**
 
-Everything below is reproducible with one command:
+Two commands reproduce everything:
 
 ```bash
-./scripts/verify.sh
+anvil verify              # the whole evidence set, in process
+./scripts/verify.sh       # the above, plus the toolchain checks a shell must do
 ```
 
-That script runs all eight checks and writes raw evidence to `results/`. The
-committed run of that evidence lives in [`docs/benchmarks/`](docs/benchmarks/).
+The script owns only what needs the Go toolchain (dependency proof, static
+build, cross-compile, gofmt, vet, race tests) and delegates the rest to
+`anvil verify`, so the two can never test different things. Raw evidence from
+the committed run is in [`docs/benchmarks/`](docs/benchmarks/).
 
-Last full run: Go 1.27.0, windows/amd64. **All checks passed.**
+Last full run: Go 1.27.0, windows/amd64. **All nine checks passed.**
 
 ---
 
@@ -20,16 +23,16 @@ Last full run: Go 1.27.0, windows/amd64. **All checks passed.**
 
 | # | Claim | Evidence | Result |
 |---|---|---|---|
-| 1 | Zero third-party runtime dependencies | `go.mod` has no `require` block; `go list -m all` prints only `anvil` | ✅ [`deps-proof.txt`](deps-proof.txt) |
+| 1 | Zero third-party runtime dependencies | `go.mod` has no `require` block; `go list -m all` prints one module | ✅ [`deps-proof.txt`](deps-proof.txt) |
 | 2 | Builds with one command, statically, without cgo | `CGO_ENABLED=0 go build ./...` | ✅ |
 | 3 | Portable across platforms | Cross-compiles linux/amd64, linux/arm64, darwin/arm64, windows/amd64 | ✅ |
 | 4 | Idiomatic, clean code | `gofmt -l .` empty; `go vet ./...` clean | ✅ |
-| 5 | Correct under normal operation | 19 tests: unit, property, model-based, concurrency | ✅ [`tests.txt`](docs/benchmarks/tests.txt) |
+| 5 | Correct under normal operation | 22 tests: format, storage semantics, property, model, concurrency | ✅ [`tests.txt`](docs/benchmarks/tests.txt) |
 | 6 | **Every acknowledged transaction survives a crash at any commit seam** | 100,000 injected crashes across all 9 seams | ✅ **0 lost, 0 violations** — [`torture.txt`](docs/benchmarks/torture.txt) |
-| 7 | **The durability test actually tests durability** | Negative control removes the pre-meta barrier | ✅ **correctly FAILS** — [`negative-control.txt`](docs/benchmarks/negative-control.txt) |
-| 8 | Recovers from real process death | Child process `kill`ed mid-commit, file reopened and checked | ✅ `TestRealProcessKillRecovery` |
-| 9 | Semantics match an independent oracle | 40,000 random ops vs a plain ordered map (no shared code) | ✅ `TestModelBased` |
-| 10 | Readers never observe a partial transaction | 8 concurrent readers assert a two-key invariant across 3,000 commits | ✅ `TestConcurrentReadersAndWriter` |
+| 7 | **The durability test actually tests durability** | Negative control removes the pre-metadata barrier | ✅ **correctly FAILS** — [`negative-control.txt`](docs/benchmarks/negative-control.txt) |
+| 8 | Recovers from real process death | A child process is killed mid-commit; the file is reopened and checked | ✅ [`verify.txt`](docs/benchmarks/verify.txt) |
+| 9 | Semantics match an independent oracle | 40,000 random ops vs a plain ordered map (no shared code) | ✅ [`verify.txt`](docs/benchmarks/verify.txt) |
+| 10 | Readers never observe a partial transaction | 8 concurrent readers, 1,934 snapshots across 3,000 commits | ✅ [`verify.txt`](docs/benchmarks/verify.txt) |
 | 11 | Corruption is detected, not silently accepted | Metadata fallback and checksum tests | ✅ `TestMetadataCorruptionFallback` |
 | 12 | Performance is adequate and honestly reported | Benchmark against a real file | ✅ [`bench.txt`](docs/benchmarks/bench.txt) |
 
@@ -42,7 +45,7 @@ model matters, because different crash types prove different things.
 
 | Failure type | How it is exercised | What it proves |
 |---|---|---|
-| **Simulated power loss** | `FaultStorage`: writes stage in memory and become durable only at `Sync`; a crash discards everything not yet synced | **Durability.** This is the primary instrument — it is the only mode where mis-placed `fsync` calls are detectable |
+| **Simulated power loss** | `FaultStorage`: writes stage in memory and become durable only at `Sync`; a crash discards everything not yet synced | **Durability.** The primary instrument — the only mode where a mis-placed `fsync` is detectable |
 | **Real process kill** (`SIGKILL`) | A child process commits in a loop and is killed; the parent reopens the real file | **Consistency** on the real syscall path. A process kill does *not* discard page-cache writes, so this alone cannot prove durability |
 | **Media corruption** | Byte-flips injected into durable pages | Checksum detection and metadata generation fallback |
 | **Real hardware power loss** | — | **Not claimed.** Storage firmware that misreports flushes is outside our evidence |
@@ -56,44 +59,78 @@ Such a test proves nothing about durability.
 So the harness is calibrated: with a required durability barrier **removed**, it
 must fail. It does.
 
-```
-$ go run ./cmd/anvil torture --negative-control
+```console
+$ anvil torture --negative-control
 
-RESULT: FAIL
-  cycle=0 seam=before_meta_sync style=persist-meta-only
-  detail: recovery open failed: anvil: database corrupt
+  RESULT: FAIL
+    cycle 0, seam before_meta_sync, crash style persist-meta-only
+    recovery open failed: anvil: database corrupt
 
-EXPECTED FAILURE: with the pre-meta data barrier removed, the
-verifier caught the durability violation. The test has teeth.
+  EXPECTED FAILURE: with the pre-metadata durability barrier removed,
+  the verifier caught the resulting data loss. The test has teeth.
 ```
 
 With the correct protocol, the identical injection passes — data is already
 durable before the metadata that references it. Both halves of this experiment
-are asserted in `TestNegativeControlHasTeeth`.
+are asserted in `TestNegativeControlHasTeeth`, and the suite treats "the
+negative control failed" as the passing outcome.
 
 ---
 
-## 3. Crash torture — full result
+## 3. The verification suite
+
+`anvil verify` runs five checks in process. `go test` runs the same functions,
+so neither can drift from the other.
 
 ```
-ANVIL CRASH TORTURE
+ANVIL VERIFY  seed 430916313
 
-seed:                    430916313
-cycles completed:        100000
-crashes injected:        100000
-recovery failures:       0
-acked writes lost:       0
-partial txns observed:   0
-invariant violations:    0
+  PASS  model equivalence    40000 operations, 350 keys, 0 mismatches
+                             expected: matches an independent reference model (738ms)
+  PASS  concurrency          3000 commits, 8 readers, 1934 snapshots, 0 partial reads
+                             expected: no reader observes a partial transaction (296ms)
+  PASS  crash torture        100000 crashes across 9 seams, 0 lost, 0 violations
+                             expected: 0 acknowledged writes lost, 0 invariant violations (1m48.752s)
+  PASS  negative control     durability violation correctly detected: recovery open failed: anvil: database corrupt
+                             expected: harness detects a removed durability barrier (0s)
+  PASS  process kill         killed at generation 1308; 1307 acknowledged keys intact, 8 pages valid
+                             expected: recovers cleanly after SIGKILL on a real file (286ms)
 
-fault seams exercised:
-  after_data_sync      11111      before_data_sync     11111
-  after_data_write     11111      before_data_write    11112
-  after_meta_sync      11111      before_meta_sync     11111
-  after_meta_write     11111      before_meta_write    11111
-  before_ack           11111
+  5 checks in 1m50.072s
 
-RESULT: PASS
+  RESULT: PASS
+```
+
+| Check | Implementation | What it establishes |
+|---|---|---|
+| model equivalence | `verification/model.go` | Observable behaviour matches an independent oracle over 40,000 randomized operations |
+| concurrency | `verification/concurrency.go` | No snapshot reader ever sees a torn transaction |
+| crash torture | `verification/torture.go` | Durability across every commit seam |
+| negative control | `verification/torture.go` | The durability test has teeth |
+| process kill | `verification/suite.go` | Real `SIGKILL` on the real file recovers cleanly |
+
+---
+
+## 4. Crash torture — full result
+
+```
+ANVIL TORTURE  seed 430916313
+
+  cycles completed       100000
+  crashes injected       100000
+  recovery failures      0
+  acked writes lost      0
+  partial txns observed  0
+  invariant violations   0
+
+  commit seams exercised
+    after_data_sync      11111      before_data_sync     11111
+    after_data_write     11111      before_data_write    11112
+    after_meta_sync      11111      before_meta_sync     11111
+    after_meta_write     11111      before_meta_write    11111
+    before_ack           11111
+
+  RESULT: PASS
 ```
 
 **What each cycle does:** reopen from the durable image → build a random
@@ -112,18 +149,23 @@ state against the reference model.
 5. No acknowledged write is missing.
 
 **Seam coverage** is round-robin, so all nine commit seams are exercised roughly
-equally. Crash points are enumerated at I/O-operation granularity — not every
-possible machine instruction. Every run is reproducible from its seed.
+equally. The seams are defined by the engine (`engine.CommitSeams`) and consumed
+by the harness, so a new seam cannot be silently skipped. Crash points are
+enumerated at I/O-operation granularity — not every possible machine
+instruction. Every run is reproducible from its seed.
 
 ---
 
-## 4. Test inventory (19 tests, all passing)
+## 5. Test inventory (22 tests, all passing)
 
-```
-$ go test -v ./...      # 4.07s
+```console
+$ go test -count=1 -v ./...
+ok  github.com/harshtripathi272/anvil/cli           0.027s
+ok  github.com/harshtripathi272/anvil/engine        0.026s
+ok  github.com/harshtripathi272/anvil/verification  3.855s
 ```
 
-### Format and encoding — `page_test.go`
+### Format and encoding — `engine/page_test.go` (white-box)
 | Test | What it proves |
 |---|---|
 | `TestLeafRoundTrip` | Leaf pages encode/decode losslessly, including binary and empty values |
@@ -132,7 +174,11 @@ $ go test -v ./...      # 4.07s
 | `TestMetaRoundTripAndCorruption` | Metadata round-trips; corrupted metadata is rejected |
 | `TestKeyValueBounds` | Oversized keys/values and empty keys are rejected cleanly |
 
-### Storage semantics — `db_test.go`
+These stay in `engine` because they exercise unexported format internals — page
+offsets, node encoding, metadata layout. Relocating them would mean exporting
+the entire on-disk format.
+
+### Storage semantics — `verification/db_test.go`
 | Test | What it proves |
 |---|---|
 | `TestBasicPutGetDelete` | Put, get, overwrite, delete, and missing-key behaviour |
@@ -144,7 +190,7 @@ $ go test -v ./...      # 4.07s
 | `TestAtomicMultiKeyTransaction` | A multi-key transaction becomes visible all at once |
 | `TestRollbackDiscards` | Rollback leaves no trace of uncommitted work |
 
-### Crash safety — `crash_test.go`
+### Crash safety — `verification/crash_test.go`
 | Test | What it proves |
 |---|---|
 | `TestTortureStandard` | 5,000 crash cycles, all 9 seams covered, zero losses |
@@ -158,13 +204,20 @@ $ go test -v ./...      # 4.07s
 | `TestConcurrentReadersAndWriter` | 8 readers + 1 writer, 3,000 commits: no partial transaction, scans stay sorted |
 | `TestRealProcessKillRecovery` | A real killed process leaves a recoverable database with all acknowledged keys intact |
 
+### Command line — `cli/cli_test.go`
+| Test | What it proves |
+|---|---|
+| `TestPrefixEnd` | Prefix-to-range conversion is correct, including carry past trailing `0xff` |
+| `TestPrefixEndBoundsScan` | Every key carrying a prefix sorts inside the derived range, and neighbours sort outside |
+| `TestCommandTable` | Every visible command has a group, a summary and an implementation; no duplicate names |
+
 **Reference-model independence:** the oracle is a plain Go `map` plus `sort`,
 sharing no code with the B+tree implementation. The verifier never asks Anvil to
 verify Anvil.
 
 ---
 
-## 5. Benchmark
+## 6. Benchmark
 
 Real file backend, `fdatasync` per commit, 100,000 keys × 16-byte values,
 windows/amd64. **Performance is not a competition claim** — this exists to
@@ -172,40 +225,40 @@ detect catastrophic regressions and to be honest about the fsync-bound path.
 
 | Operation | Latency | Throughput |
 |---|---|---|
-| Batched write (1,000 ops/txn) | 355 ms total | **281.9 K ops/s** |
-| Single-commit write | 217 µs | 4.6 K ops/s (2 `fdatasync` per commit) |
-| Random point read | 23 µs | 43.9 K ops/s |
-| Full scan | 9 ms | **11.53 M keys/s** |
+| Batched write (1,000 ops/txn) | 443 ms total | **225.8 K ops/s** |
+| Single-commit write | 282 µs | 3.5 K ops/s (2 `fdatasync` per commit) |
+| Random point read | 20 µs | 49.2 K ops/s |
+| Full scan | 7 ms | **15.42 M keys/s** |
 | Recovery (reopen) | < 1 ms | generation 2101 |
-| Deep structural check | 9 ms | 809 pages, 102,000 keys, leaf depth 2 |
+| Deep structural check | 7 ms | 809 pages, 102,000 keys, leaf depth 2 |
 | File size | 27.7 MB | 7,084 pages including copy-on-write history |
 
 Single-commit throughput is deliberately fsync-bound: each commit pays two
 durability barriers. Batching amortizes them, which is why the batched figure is
-~60× higher. Shadow paging also means each commit rewrites the root-to-leaf path
-(tree-height pages) — the same write-amplification trade LMDB and bbolt make in
-exchange for crash-safety simplicity and lock-free snapshot reads.
+roughly 60× higher. Shadow paging also means each commit rewrites the
+root-to-leaf path — the same write-amplification trade LMDB and bbolt make in
+exchange for a simpler crash-consistency argument and lock-free snapshot reads.
 
 ---
 
-## 6. Invariants and where they are enforced
+## 7. Invariants and where they are enforced
 
 | # | Invariant | Enforced by |
 |---|---|---|
-| I1 | Committed pages are never modified in place | Copy-on-write in `btree.go`; grow-only allocation |
-| I2 | Metadata never references a page that has not satisfied the durability barrier | `Commit` ordering, `tx.go`; proven by the negative control |
-| I3 | The committed meta slot is never overwritten before the alternate is durable | Slot alternation by transaction parity, `tx.go` |
-| I4 | A commit is acknowledged only after the durable commit point | `Commit` returns after the second `Sync`, `tx.go` |
-| I5 | Every page reachable from the committed root is checksum-valid | `checker.go`, run every torture cycle |
-| I6 | Every leaf is at the same depth (underfull nodes are legal) | `checker.go` |
+| I1 | Committed pages are never modified in place | Copy-on-write in `engine/btree.go`; grow-only allocation |
+| I2 | Metadata never references a page that has not satisfied the durability barrier | `Commit` ordering, `engine/tx.go`; proven by the negative control |
+| I3 | The committed meta slot is never overwritten before the alternate is durable | Slot alternation by transaction parity, `engine/tx.go` |
+| I4 | A commit is acknowledged only after the durable commit point | `Commit` returns after the second `Sync`, `engine/tx.go` |
+| I5 | Every page reachable from the committed root is checksum-valid | `engine/checker.go`, run every torture cycle |
+| I6 | Every leaf is at the same depth (underfull nodes are legal) | `engine/checker.go` |
 | I7 | An active snapshot never observes an overwritten or reclaimed page | Grow-only allocation, by construction in v1 |
-| I8 | A failed or uncommitted transaction is never partially visible | Torture all-or-nothing assertion; `TestConcurrentReadersAndWriter` |
-| I9 | Recovery selects only a checksum-valid committed generation, or fails loudly | `recover()` in `db.go`; `TestMetadataCorruptionFallback` |
-| I10 | The reference model shares no implementation logic with the B+tree | `model_test.go` uses a plain map |
+| I8 | A failed or uncommitted transaction is never partially visible | Torture all-or-nothing assertion; `RunConcurrencyCheck` |
+| I9 | Recovery selects only a checksum-valid committed generation, or fails loudly | `recover()` in `engine/db.go`; `TestMetadataCorruptionFallback` |
+| I10 | The reference model shares no implementation logic with the B+tree | `verification/model.go` uses a plain map |
 
 ---
 
-## 7. What is NOT claimed, and what is NOT verified
+## 8. What is NOT claimed, and what is NOT verified
 
 Stated plainly, because a verifier should not have to discover these.
 
@@ -226,14 +279,14 @@ Stated plainly, because a verifier should not have to discover these.
 - The race detector requires a cgo-capable toolchain. The development host has a
   32-bit gcc, so `go test -race` runs in CI (ubuntu-latest) rather than locally.
   `scripts/verify.sh` attempts `-race` and reports which mode ran.
-- The Linux `syscall.Fdatasync` path compiles and vets cleanly for
-  linux/amd64 and linux/arm64, but the committed benchmark run is from Windows,
-  where the barrier is `FlushFileBuffers` via `File.Sync`. CI executes the
-  Linux path.
+- The Linux `syscall.Fdatasync` path compiles and vets cleanly for linux/amd64
+  and linux/arm64, but the committed benchmark run is from Windows, where the
+  barrier is `FlushFileBuffers` via `File.Sync`. CI executes the Linux path.
 - Crash injection covers I/O-operation seams, not arbitrary instruction
   boundaries.
 - Torture has been run to 100,000 cycles per seed. Longer campaigns
-  (`--cycles 1000000`) are supported but not part of the committed evidence.
+  (`anvil torture --cycles 1000000`) are supported but are not part of the
+  committed evidence.
 
 **Version 1 limitations (by design, per the specification):**
 - Keys ≤ 1 KiB; key + value ≤ ~2 KiB (no overflow pages).

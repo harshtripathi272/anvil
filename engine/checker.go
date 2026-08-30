@@ -1,4 +1,4 @@
-package anvil
+package engine
 
 import (
 	"bytes"
@@ -100,10 +100,4 @@ func (c *checker) walk(id uint64, depth int, lo, hi []byte) error {
 		}
 	}
 	return nil
-}
-
-// verifyStructure is a convenience wrapper returning only the error.
-func verifyStructure(db *DB) error {
-	_, err := db.Check()
-	return err
 }

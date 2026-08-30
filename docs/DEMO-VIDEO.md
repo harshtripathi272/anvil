@@ -1,0 +1,38 @@
+# Demo video
+
+**Status: not yet recorded.** The URL below is a placeholder and must be
+replaced before submission.
+
+| Field | Value |
+|---|---|
+| URL | `DEMO_VIDEO_URL_PENDING` |
+| Length | 5 minutes (hard limit) |
+| Script | [DEMO.md](DEMO.md) |
+
+## What to replace when the video exists
+
+1. The `URL` row above.
+2. The **Demo** section near the top of [`../README.md`](../README.md), which
+   currently reads `DEMO_VIDEO_URL_PENDING`.
+
+Both are marked with `DEMO_VIDEO_URL_PENDING`, so:
+
+```bash
+grep -rn DEMO_VIDEO_URL_PENDING .
+```
+
+finds every place that needs updating.
+
+## Recording checklist
+
+- [ ] Terminal font large enough to read at 720p; dark background.
+- [ ] `CGO_ENABLED=0 go build -o anvil ./cli` done before recording starts.
+- [ ] Work in a clean directory so no stale `.anvil` file is present.
+- [ ] Follow the shot order in [DEMO.md](DEMO.md): provenance → store → atomic
+      and snapshot → torture → **negative control** → `anvil verify`.
+- [ ] The negative control is the emotional peak — do not rush past the
+      `EXPECTED FAILURE` explanation.
+- [ ] Keep every claim on screen. Never assert something the terminal is not
+      showing.
+- [ ] Close on the honest boundary: crash-consistent under a documented model,
+      not "crash-safe" unqualified.

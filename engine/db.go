@@ -1,4 +1,4 @@
-package anvil
+package engine
 
 import (
 	"errors"
@@ -33,10 +33,12 @@ type DB struct {
 }
 
 type config struct {
-	readOnly bool
+	readOnly     bool
+	checkpoint   func(seam string) error
+	skipDataSync bool
 }
 
-// Option configures Open.
+// Option configures Open and OpenStorage.
 type Option func(*config)
 
 // WithReadOnly opens the database without the ability to write.
@@ -44,17 +46,33 @@ func WithReadOnly() Option {
 	return func(c *config) { c.readOnly = true }
 }
 
+// WithCheckpoint installs a hook invoked at each commit seam named in
+// CommitSeams. Returning a non-nil error aborts the commit at that point,
+// which is how the verification harness models a crash mid-commit.
+//
+// This is a verification facility. Production callers should not set it.
+func WithCheckpoint(fn func(seam string) error) Option {
+	return func(c *config) { c.checkpoint = fn }
+}
+
+// WithoutDataSync removes the durability barrier that must precede metadata
+// publication, deliberately breaking the commit protocol.
+//
+// It exists for exactly one purpose: the negative control, which proves the
+// crash harness detects a real durability failure rather than passing
+// vacuously. Never use it in production — a database opened with this option
+// can lose acknowledged writes.
+func WithoutDataSync() Option {
+	return func(c *config) { c.skipDataSync = true }
+}
+
 // Open opens (creating if absent) the database at path.
 func Open(path string, opts ...Option) (*DB, error) {
-	var cfg config
-	for _, o := range opts {
-		o(&cfg)
-	}
 	fs, created, err := openFileStorage(path)
 	if err != nil {
 		return nil, err
 	}
-	db, err := openOn(fs, created, cfg)
+	db, err := openOn(fs, created, buildConfig(opts))
 	if err != nil {
 		fs.Close()
 		return nil, err
@@ -62,10 +80,33 @@ func Open(path string, opts ...Option) (*DB, error) {
 	return db, nil
 }
 
-// openOn builds a DB over any Storage (used by Open and by the test/torture
-// harnesses with a FaultStorage).
+// OpenStorage opens a database over any Storage implementation, creating an
+// empty one if the storage holds no pages. It is how the verification harness
+// runs the real engine against simulated stable storage.
+func OpenStorage(s Storage, opts ...Option) (*DB, error) {
+	n, err := s.NumPages()
+	if err != nil {
+		return nil, err
+	}
+	return openOn(s, n == 0, buildConfig(opts))
+}
+
+func buildConfig(opts []Option) config {
+	var cfg config
+	for _, o := range opts {
+		o(&cfg)
+	}
+	return cfg
+}
+
+// openOn builds a DB over any Storage.
 func openOn(s Storage, created bool, cfg config) (*DB, error) {
-	db := &DB{storage: s, readOnly: cfg.readOnly}
+	db := &DB{
+		storage:      s,
+		readOnly:     cfg.readOnly,
+		checkpoint:   cfg.checkpoint,
+		skipDataSync: cfg.skipDataSync,
+	}
 	if created {
 		if cfg.readOnly {
 			return nil, ErrReadOnly

@@ -1,6 +1,11 @@
-package anvil
+package verification
 
-import "sync"
+import (
+	"bytes"
+	"sync"
+
+	"github.com/harshtripathi272/anvil/engine"
+)
 
 // FaultStorage is an in-memory Storage that models stable storage precisely:
 // writes land in a volatile staging area and become durable only on Sync. A
@@ -29,8 +34,8 @@ func NewFaultStorage() *FaultStorage {
 }
 
 func (s *FaultStorage) ReadPage(id uint64, buf []byte) error {
-	if len(buf) != PageSize {
-		return ErrInvalidArgument
+	if len(buf) != engine.PageSize {
+		return engine.ErrInvalidArgument
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -54,13 +59,13 @@ func (s *FaultStorage) ReadPage(id uint64, buf []byte) error {
 }
 
 func (s *FaultStorage) WritePage(id uint64, p []byte) error {
-	if len(p) != PageSize {
-		return ErrInvalidArgument
+	if len(p) != engine.PageSize {
+		return engine.ErrInvalidArgument
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.writes++
-	s.pending[id] = clonebytes(p)
+	s.pending[id] = bytes.Clone(p)
 	return nil
 }
 
@@ -136,7 +141,7 @@ func (s *FaultStorage) CorruptDurablePage(id uint64) bool {
 	if !ok || len(p) == 0 {
 		return false
 	}
-	p[headerSize+1] ^= 0xff // flip a payload byte -> checksum mismatch
+	p[engine.PageHeaderSize+1] ^= 0xff // flip a payload byte -> checksum mismatch
 	return true
 }
 

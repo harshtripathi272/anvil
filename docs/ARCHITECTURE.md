@@ -5,18 +5,18 @@ How the engine works, in the order you should read the code.
 ```
                     application / CLI
                             │
-                      Anvil API  (db.go, tx.go)
+                      Anvil API  (engine/db.go, engine/tx.go)
                             │
               ┌─────────────┴─────────────┐
         read transaction            write transaction
         (snapshot root)              (single writer)
               └─────────────┬─────────────┘
                             │
-                   copy-on-write B+tree  (btree.go)
+                   copy-on-write B+tree  (engine/btree.go)
                             │
-                    page encode/decode  (page.go)
+                    page encode/decode  (engine/page.go)
                             │
-                      Storage interface  (storage.go)
+                      Storage interface  (engine/storage.go)
                             │
               ┌─────────────┴─────────────┐
          FileStorage                 FaultStorage
@@ -25,8 +25,8 @@ How the engine works, in the order you should read the code.
            disk                    only synced bytes survive
 ```
 
-Reading order: `page.go` → `btree.go` → `tx.go` → `db.go` → `torture.go` →
-`checker.go`.
+Reading order: `engine/page.go` → `engine/btree.go` → `engine/tx.go` → `engine/db.go` → `verification/torture.go` →
+`engine/checker.go`.
 
 ---
 
@@ -209,8 +209,38 @@ This gives the harness two crash styles:
   was already synced. With the barrier removed, recovery breaks — which is the
   negative control.
 
-`Commit` calls a `checkpoint(seam)` hook at nine named boundaries; in production
-the hook is nil. The harness arms it to abort at one seam per cycle.
+`Commit` calls a `checkpoint(seam)` hook at the nine boundaries listed in
+`engine.CommitSeams`; in production the hook is nil. The harness arms it via
+`engine.WithCheckpoint` to abort at one seam per cycle.
+
+### Package boundaries
+
+The engine and its adversary are separate packages, which is what keeps the
+evidence honest:
+
+```
+cli/            orchestration and presentation only — implements nothing
+  ↓
+verification/   FaultStorage, torture, model oracle, benchmark, suite
+  ↓
+engine/         the database itself
+  ↓
+standard library / OS
+```
+
+`engine` exposes exactly three verification affordances — `OpenStorage`,
+`WithCheckpoint`, and `WithoutDataSync` — so the harness drives the real commit
+path rather than a test-only replica of it. `WithoutDataSync` deliberately
+breaks the protocol and exists solely for the negative control; it is documented
+as such at its definition.
+
+Verification logic lives in ordinary files (`verification/model.go`,
+`verification/suite.go`, …) that both `go test` and `anvil verify` call. Neither
+entry point has its own copy, so they cannot drift apart.
+
+The one exception to the split is `engine/page_test.go`, which tests unexported
+page-format internals and therefore stays in `engine`. Moving it would mean
+exporting the entire on-disk format to satisfy a directory layout.
 
 See [VERIFICATION.md](../VERIFICATION.md) for results.
 

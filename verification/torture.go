@@ -1,30 +1,21 @@
-package anvil
+package verification
 
 import (
 	"errors"
 	"fmt"
 	"math/rand"
 	"sort"
+
+	"github.com/harshtripathi272/anvil/engine"
 )
 
 // errInjectedCrash aborts a commit at a chosen seam, standing in for abrupt
 // process/power loss at that exact point in the protocol.
 var errInjectedCrash = errors.New("anvil: injected crash")
 
-// commitSeams are the named persistence boundaries the harness can crash at
-// (SRS v1.1 §43). This is the defined seam set — crash points are enumerated at
-// I/O-operation granularity, not every possible instruction.
-var commitSeams = []string{
-	"before_data_write",
-	"after_data_write",
-	"before_data_sync",
-	"after_data_sync",
-	"before_meta_write",
-	"after_meta_write",
-	"before_meta_sync",
-	"after_meta_sync",
-	"before_ack",
-}
+// commitSeams are the persistence boundaries the harness crashes at. The engine
+// defines them; the harness only enumerates them.
+var commitSeams = engine.CommitSeams
 
 // TortureConfig configures a crash-torture run.
 type TortureConfig struct {
@@ -119,7 +110,7 @@ func runTorture(opts tortureOpts) TortureResult {
 	model := map[string]string{} // durable, acknowledged state
 
 	// Bootstrap an empty database.
-	db, err := openOn(storage, true, config{})
+	db, err := engine.OpenStorage(storage)
 	if err != nil {
 		res.OK = false
 		res.FailDetail = "initial open: " + err.Error()
@@ -135,12 +126,28 @@ func runTorture(opts tortureOpts) TortureResult {
 			seam = commitSeams[cycle%len(commitSeams)]
 		}
 
+		// Arm the crash at this cycle's seam before opening, so the hook is in
+		// place for the single commit this cycle performs.
+		hit := false
+		openOpts := []engine.Option{
+			engine.WithCheckpoint(func(s string) error {
+				if s == seam {
+					hit = true
+					return errInjectedCrash
+				}
+				return nil
+			}),
+		}
+		if opts.skipDataSync {
+			// Negative control: deliberately break the commit protocol.
+			openOpts = append(openOpts, engine.WithoutDataSync())
+		}
+
 		// Reopen over the current durable image.
-		db, err := openOn(storage, false, config{})
+		db, err := engine.OpenStorage(storage, openOpts...)
 		if err != nil {
 			return fail(res, cycle, seam, opts.style, "reopen before txn: "+err.Error())
 		}
-		db.skipDataSync = opts.skipDataSync
 		baseTx, _, _ := db.Info()
 		metaSlot := (baseTx + 1) % 2
 
@@ -165,15 +172,7 @@ func runTorture(opts tortureOpts) TortureResult {
 			}
 		}
 
-		// Arm the crash at the chosen seam and attempt the commit.
-		hit := false
-		db.checkpoint = func(s string) error {
-			if s == seam {
-				hit = true
-				return errInjectedCrash
-			}
-			return nil
-		}
+		// Attempt the commit; the armed checkpoint aborts it at the seam.
 		commitErr := wtx.Commit()
 		if !errors.Is(commitErr, errInjectedCrash) {
 			// Seam not reached (shouldn't happen) — count as a clean commit.
@@ -195,7 +194,7 @@ func runTorture(opts tortureOpts) TortureResult {
 		}
 
 		// Recover from exactly the durable bytes and verify.
-		rdb, err := openOn(storage, false, config{})
+		rdb, err := engine.OpenStorage(storage)
 		if err != nil {
 			res.RecoveryFailures++
 			return fail(res, cycle, seam, opts.style, "recovery open failed: "+err.Error())
@@ -248,7 +247,7 @@ func partialDetail(before, after, got map[string]string) string {
 		len(before), len(after), len(got))
 }
 
-func scanAll(db *DB) (map[string]string, error) {
+func scanAll(db *engine.DB) (map[string]string, error) {
 	tx, err := db.BeginRead()
 	if err != nil {
 		return nil, err
