@@ -1,0 +1,78 @@
+=== RUN   TestPrefixEnd
+--- PASS: TestPrefixEnd (0.00s)
+=== RUN   TestPrefixEndBoundsScan
+--- PASS: TestPrefixEndBoundsScan (0.00s)
+=== RUN   TestCommandTable
+--- PASS: TestCommandTable (0.00s)
+PASS
+ok  	github.com/harshtripathi272/anvil/cli	1.009s
+=== RUN   TestLeafRoundTrip
+--- PASS: TestLeafRoundTrip (0.00s)
+=== RUN   TestInternalRoundTrip
+--- PASS: TestInternalRoundTrip (0.00s)
+=== RUN   TestChecksumDetectsCorruption
+--- PASS: TestChecksumDetectsCorruption (0.00s)
+=== RUN   TestMetaRoundTripAndCorruption
+--- PASS: TestMetaRoundTripAndCorruption (0.00s)
+=== RUN   TestKeyValueBounds
+--- PASS: TestKeyValueBounds (0.00s)
+PASS
+ok  	github.com/harshtripathi272/anvil/engine	1.009s
+=== RUN   TestConcurrentReadersAndWriter
+    concurrency_test.go:15: 3000 commits, 8 readers, 1942 snapshots taken, 0 partial reads
+--- PASS: TestConcurrentReadersAndWriter (2.88s)
+=== RUN   TestTortureStandard
+    crash_test.go:26: 
+        ANVIL CRASH TORTURE
+        
+        seed:                    430916313
+        cycles completed:        5000
+        crashes injected:        5000
+        recovery failures:       0
+        acked writes lost:       0
+        partial txns observed:   0
+        invariant violations:    0
+        
+        fault seams exercised:
+          after_data_sync      556
+          after_data_write     556
+          after_meta_sync      555
+          after_meta_write     555
+          before_ack           555
+          before_data_sync     556
+          before_data_write    556
+          before_meta_sync     555
+          before_meta_write    556
+        
+        RESULT: PASS
+--- PASS: TestTortureStandard (8.83s)
+=== RUN   TestNegativeControlHasTeeth
+    crash_test.go:59: negative control correctly detected the durability failure: recovery open failed: anvil: database corrupt
+--- PASS: TestNegativeControlHasTeeth (0.12s)
+=== RUN   TestMetadataCorruptionFallback
+--- PASS: TestMetadataCorruptionFallback (0.00s)
+=== RUN   TestBasicPutGetDelete
+--- PASS: TestBasicPutGetDelete (0.00s)
+=== RUN   TestBinarySafeKeysAndValues
+--- PASS: TestBinarySafeKeysAndValues (0.00s)
+=== RUN   TestManyKeysSplitsAndScan
+    db_test.go:94: after 6000 puts: gen=6001 pages=23985
+--- PASS: TestManyKeysSplitsAndScan (1.96s)
+=== RUN   TestDeleteHeavyStaysConsistent
+--- PASS: TestDeleteHeavyStaysConsistent (0.64s)
+=== RUN   TestReopenFileBackend
+--- PASS: TestReopenFileBackend (1.11s)
+=== RUN   TestSnapshotIsolation
+--- PASS: TestSnapshotIsolation (0.09s)
+=== RUN   TestAtomicMultiKeyTransaction
+--- PASS: TestAtomicMultiKeyTransaction (0.00s)
+=== RUN   TestRollbackDiscards
+--- PASS: TestRollbackDiscards (0.00s)
+=== RUN   TestModelBased
+    model_test.go:15: 40000 operations, 345 keys, 113 pages checked
+--- PASS: TestModelBased (6.40s)
+=== RUN   TestRealProcessKillRecovery
+    real_kill_test.go:44: killed at generation 103; 102 acknowledged keys intact, 1 pages valid
+--- PASS: TestRealProcessKillRecovery (0.26s)
+PASS
+ok  	github.com/harshtripathi272/anvil/verification	23.363s

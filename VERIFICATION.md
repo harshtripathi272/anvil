@@ -15,7 +15,12 @@ build, cross-compile, gofmt, vet, race tests) and delegates the rest to
 `anvil verify`, so the two can never test different things. Raw evidence from
 the committed run is in [`docs/benchmarks/`](docs/benchmarks/).
 
-Last full run: Go 1.27.0, windows/amd64. **All nine checks passed.**
+Last full run on **two platforms**, Go 1.27.0 — **all nine checks passed on both**:
+
+| Platform | Race detector | Durability barrier | Evidence |
+|---|---|---|---|
+| linux/amd64 | ✅ `go test -race`, 22 tests | real `syscall.Fdatasync` | [`docs/benchmarks/linux/`](docs/benchmarks/linux/) |
+| windows/amd64 | unavailable (no cgo toolchain) | `FlushFileBuffers` via `File.Sync` | [`docs/benchmarks/`](docs/benchmarks/) |
 
 ---
 
@@ -219,25 +224,32 @@ verify Anvil.
 
 ## 6. Benchmark
 
-Real file backend, `fdatasync` per commit, 100,000 keys × 16-byte values,
-windows/amd64. **Performance is not a competition claim** — this exists to
-detect catastrophic regressions and to be honest about the fsync-bound path.
+Real file backend, 100,000 keys × 16-byte values. **Performance is not a
+competition claim** — this exists to detect catastrophic regressions and to be
+honest about the fsync-bound path.
 
-| Operation | Latency | Throughput |
+| Operation | linux/amd64 (`fdatasync`) | windows/amd64 (`FlushFileBuffers`) |
 |---|---|---|
-| Batched write (1,000 ops/txn) | 443 ms total | **225.8 K ops/s** |
-| Single-commit write | 282 µs | 3.5 K ops/s (2 `fdatasync` per commit) |
-| Random point read | 20 µs | 49.2 K ops/s |
-| Full scan | 7 ms | **15.42 M keys/s** |
-| Recovery (reopen) | < 1 ms | generation 2101 |
-| Deep structural check | 7 ms | 809 pages, 102,000 keys, leaf depth 2 |
-| File size | 27.7 MB | 7,084 pages including copy-on-write history |
+| Batched write (1,000 ops/txn) | 705 ms · **141.8 K ops/s** | 443 ms · 225.8 K ops/s |
+| Single-commit write | **2.35 ms** · 426 ops/s | 282 µs · 3.5 K ops/s |
+| Random point read | 16 µs · 61.5 K ops/s | 20 µs · 49.2 K ops/s |
+| Full scan | 6 ms · **16.98 M keys/s** | 7 ms · 15.42 M keys/s |
+| Recovery (reopen) | 30 µs | < 1 ms |
+| Deep structural check | 7 ms | 7 ms |
+| File size | 27.7 MB (7,084 pages, incl. copy-on-write history) | same |
+
+**Read the single-commit row carefully.** Linux is ~8× slower there, and the
+Linux number is the trustworthy one: `syscall.Fdatasync` on ext4 is a real
+durability barrier, whereas the Windows figure reflects `FlushFileBuffers`
+against a developer machine's cache. Quoting only the faster platform for a
+durability-focused project would be misleading, so both are published.
 
 Single-commit throughput is deliberately fsync-bound: each commit pays two
 durability barriers. Batching amortizes them, which is why the batched figure is
-roughly 60× higher. Shadow paging also means each commit rewrites the
-root-to-leaf path — the same write-amplification trade LMDB and bbolt make in
-exchange for a simpler crash-consistency argument and lock-free snapshot reads.
+two orders of magnitude higher. Shadow paging also means each commit rewrites
+the root-to-leaf path — the same write-amplification trade LMDB and bbolt make
+in exchange for a simpler crash-consistency argument and lock-free snapshot
+reads.
 
 ---
 
@@ -276,14 +288,10 @@ Stated plainly, because a verifier should not have to discover these.
   lineage of FoundationDB, TigerBeetle's VOPR, and LazyFS.
 
 **Not verified (honest gaps):**
-- The race detector requires a cgo-capable toolchain. The development host has a
-  32-bit gcc, so `go test -race` runs in CI (ubuntu-latest) rather than locally.
-  `scripts/verify.sh` attempts `-race` and reports which mode ran.
-- The Linux `syscall.Fdatasync` path compiles and vets cleanly for linux/amd64
-  and linux/arm64, but the committed benchmark run is from Windows, where the
-  barrier is `FlushFileBuffers` via `File.Sync`. CI executes the Linux path.
 - Crash injection covers I/O-operation seams, not arbitrary instruction
   boundaries.
+- The benchmark host is a developer machine, not isolated hardware; timings vary
+  between runs and between the two platforms (see §6).
 - Torture has been run to 100,000 cycles per seed. Longer campaigns
   (`anvil torture --cycles 1000000`) are supported but are not part of the
   committed evidence.

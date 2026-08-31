@@ -181,18 +181,20 @@ mathematically proven, or to be faster than any production database.
 
 ## Benchmarks
 
-Real file, `fdatasync` per commit, 100,000 keys × 16-byte values, windows/amd64:
+Real file, 100,000 keys x 16-byte values, verified on both platforms:
 
-| Operation | Result |
-|---|---|
-| Batched write (1,000 ops/txn) | **225.8 K ops/s** |
-| Single-commit write | 282 µs (2 `fdatasync` per commit) |
-| Random point read | 20 µs · 49.2 K ops/s |
-| Full scan | **15.42 M keys/s** |
-| Recovery (reopen) | < 1 ms |
+| Operation | linux/amd64 (`fdatasync`) | windows/amd64 |
+|---|---|---|
+| Batched write (1,000 ops/txn) | **141.8 K ops/s** | 225.8 K ops/s |
+| Single-commit write | 2.35 ms (2 barriers) | 282 µs |
+| Random point read | 16 µs | 20 µs |
+| Full scan | **16.98 M keys/s** | 15.42 M keys/s |
+| Recovery (reopen) | 30 µs | < 1 ms |
 
-Performance is not a competition claim; single-commit throughput is fsync-bound
-by design. Full evidence: **[VERIFICATION.md](VERIFICATION.md)**.
+Single-commit is ~8x slower on Linux, and that is the number to trust:
+`syscall.Fdatasync` on ext4 is a real durability barrier. Performance is not a
+competition claim — the commit path is fsync-bound by design. Full evidence:
+**[VERIFICATION.md](VERIFICATION.md)**.
 
 ## Reproduce everything
 

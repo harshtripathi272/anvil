@@ -1,0 +1,110 @@
+
+=== 1. zero third-party dependencies ===
+$ cat go.mod
+module github.com/harshtripathi272/anvil
+
+go 1.27
+
+$ go list -m all
+github.com/harshtripathi272/anvil
+PASS  standard library only
+
+=== 2. build (static, cgo disabled) ===
+PASS  builds
+
+=== 3. cross-compile ===
+PASS  linux/amd64
+PASS  linux/arm64
+PASS  darwin/arm64
+PASS  windows/amd64
+
+=== 4. formatting and vet ===
+PASS  gofmt
+PASS  vet
+
+=== 5. test suite (race detector) ===
+PASS  go test -race (22 tests)
+
+=== 6. verification suite (model, concurrency, torture, negative control, process kill) ===
+ANVIL VERIFY  seed 430916313
+
+  PASS  model equivalence    40000 operations, 350 keys, 0 mismatches
+                             expected: matches an independent reference model (849ms)
+  PASS  concurrency          3000 commits, 8 readers, 2000 snapshots, 0 partial reads
+                             expected: no reader observes a partial transaction (551ms)
+  PASS  crash torture        100000 crashes across 9 seams, 0 lost, 0 violations
+                             expected: 0 acknowledged writes lost, 0 invariant violations (2m31.671s)
+  PASS  negative control     durability violation correctly detected: recovery open failed: anvil: database corrupt
+                             expected: harness detects a removed durability barrier (0s)
+  PASS  process kill         killed at generation 110; 109 acknowledged keys intact, 1 pages valid
+                             expected: recovers cleanly after SIGKILL on a real file (254ms)
+
+  5 checks in 2m33.325s
+
+  RESULT: PASS
+PASS  all verification checks
+
+=== 7. crash torture detail (100000 cycles, per-seam coverage) ===
+ANVIL TORTURE  seed 430916313
+
+  cycles completed       100000
+  crashes injected       100000
+  recovery failures      0
+  acked writes lost      0
+  partial txns observed  0
+  invariant violations   0
+
+  commit seams exercised
+    after_data_sync      11111
+    after_data_write     11111
+    after_meta_sync      11111
+    after_meta_write     11111
+    before_ack           11111
+    before_data_sync     11111
+    before_data_write    11112
+    before_meta_sync     11111
+    before_meta_write    11111
+
+  RESULT: PASS
+PASS  0 acknowledged writes lost, 0 invariant violations
+
+=== 8. negative control (MUST fail -- proves the test has teeth) ===
+ANVIL TORTURE  seed 430916313
+
+  cycles completed       1
+  crashes injected       1
+  recovery failures      1
+  acked writes lost      0
+  partial txns observed  0
+  invariant violations   0
+
+  commit seams exercised
+    before_meta_sync     1
+
+  RESULT: FAIL
+    cycle 0, seam before_meta_sync, crash style persist-meta-only
+    recovery open failed: anvil: database corrupt
+
+  EXPECTED FAILURE: with the pre-metadata durability barrier removed,
+  the verifier caught the resulting data loss. The test has teeth.
+PASS  verifier caught the removed durability barrier
+
+=== 9. benchmark ===
+ANVIL BENCH  real file, fdatasync per commit, linux/amd64
+
+  dataset            100000 keys x 16-byte values, batch 1000
+
+  batched write      705ms      141.8 K ops/s
+  single commit      2.347ms    426 ops/s  (2 fdatasync per commit)
+  random read        16µs       61.5 K ops/s
+  full scan          6ms        16.98 M ops/s  (102000 keys)
+  recovery open      30µs       (generation 2101)
+  structural check   7ms        (809 pages, 102000 keys, leaf depth 2)
+  file size          27.7 MB   (7084 pages incl. copy-on-write history)
+
+  Performance is not a competition claim. Single-commit throughput is
+  fsync-bound by design; correctness comes first.
+PASS  benchmark
+
+========================================
+ALL CHECKS PASSED -- evidence in /mnt/d/Workspace/zero-dependency/docs/benchmarks/linux/

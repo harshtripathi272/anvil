@@ -15,8 +15,12 @@ OUT_DIR=docs/benchmarks ./scripts/verify.sh
 | `negative-control.txt` | The calibration run: a required durability barrier removed, harness correctly FAILS |
 | `bench.txt` | Write, read, scan, recovery, and structural-check timings |
 
-Run environment: Go 1.27.0, windows/amd64. The race detector needs a
-cgo-capable toolchain and runs in CI on ubuntu-latest, which also exercises the
-Linux `fdatasync` path.
+`linux/` holds the same evidence set from a linux/amd64 run, where the race
+detector is available (`go test -race`, 22 tests) and the durability barrier is
+the real `syscall.Fdatasync`. The files at this level are from windows/amd64,
+where the barrier is `FlushFileBuffers`. Both runs pass all nine checks; the
+Linux benchmark is the trustworthy one for commit latency.
+
+Run environment: Go 1.27.0.
 
 Interpretation of every number lives in [VERIFICATION.md](../../VERIFICATION.md).
