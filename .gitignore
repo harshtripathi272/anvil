@@ -10,3 +10,8 @@
 
 # local tooling
 /.commandcode/
+
+# video tooling (Remotion skills) — never part of the zero-dependency product
+/.agents/
+/.claude/
+/skills-lock.json

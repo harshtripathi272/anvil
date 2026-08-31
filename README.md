@@ -217,7 +217,7 @@ engine/            the storage engine (page format, B+tree, transactions, recove
 verification/      fault injection, crash torture, model checking, benchmarks
 cli/               the single `anvil` command
 scripts/verify.sh  canonical reproducibility entry point
-docs/              ARCHITECTURE.md, DEMO.md, benchmarks/, internal/
+docs/              ARCHITECTURE.md, BENCHMARKS.md, DEMO.md, benchmarks/, internal/
 extra/             auxiliary material, not part of the product
 README.md · STDLIB.md · VERIFICATION.md · LICENSE · deps-proof.txt
 ```

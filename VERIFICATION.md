@@ -244,6 +244,28 @@ durability barrier, whereas the Windows figure reflects `FlushFileBuffers`
 against a developer machine's cache. Quoting only the faster platform for a
 durability-focused project would be misleading, so both are published.
 
+### Latency percentiles, curves and a head-to-head
+
+Averages hide tails, so the full profile lives in
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md): p50/p95/p99 for commit and read, the
+batching curve (647 → 213,000 ops/s across batch sizes), dataset scaling, and a
+measured head-to-head against **bbolt** — Anvil's closest architectural relative.
+
+Headline from that comparison (linux/amd64, 100k keys, same machine):
+
+| | Anvil | bbolt | |
+|---|---|---|---|
+| Batched load | 168.3 K ops/s | 450.6 K ops/s | bbolt 2.7× |
+| Commit p50 | 1,722 µs | 750 µs | bbolt 2.3× |
+| Random read p50 | 10.5 µs | 0.8 µs | **bbolt 13.1×** |
+| Reopen | **33.7 µs** | 63.4 µs | **Anvil 1.9×** |
+| File size | **8.7 MB** | 16.0 MB | **Anvil 1.8×** |
+
+Reads are the one large gap and the reason is structural: bbolt memory-maps the
+database, Anvil issues a `pread` per page and decodes it with no page cache.
+That was a deliberate trade for a simpler, portable crash model, and it is the
+clearest candidate for future work.
+
 Single-commit throughput is deliberately fsync-bound: each commit pays two
 durability barriers. Batching amortizes them, which is why the batched figure is
 two orders of magnitude higher. Shadow paging also means each commit rewrites

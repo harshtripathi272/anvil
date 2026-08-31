@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
@@ -146,8 +147,16 @@ func cmdBench(args []string) error {
 	reads := fs.Int("reads", 200000, "random point reads")
 	batch := fs.Int("batch", 1000, "operations per batched commit")
 	path := fs.String("path", "", "database file (default: a temp file, removed afterwards)")
+	profile := fs.Bool("profile", false, "also measure latency percentiles, the batching curve and dataset scaling")
+	jsonOut := fs.String("json", "", "write the profile to this file as JSON (for charting)")
+	samples := fs.Int("samples", 2000, "latency samples per operation (--profile)")
+	big := fs.Bool("big", false, "include a 1M-key point in the scaling curve (--profile)")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+
+	if *profile || *jsonOut != "" {
+		return runProfile(*samples, *big, *jsonOut)
 	}
 
 	res, err := verification.RunBenchmark(verification.BenchConfig{
@@ -178,6 +187,71 @@ func cmdBench(args []string) error {
 	fmt.Printf("\n  Performance is not a competition claim. Single-commit throughput is\n")
 	fmt.Printf("  fsync-bound by design; correctness comes first.\n")
 	return nil
+}
+
+// runProfile measures latency percentiles, the batching curve and dataset
+// scaling, printing a human summary and optionally emitting JSON for charts.
+func runProfile(samples int, big bool, jsonPath string) error {
+	sizes := []int{10_000, 100_000}
+	if big {
+		sizes = append(sizes, 1_000_000)
+	}
+
+	fmt.Println("ANVIL PROFILE   (this takes a few minutes)")
+	fmt.Println()
+	p, err := verification.RunProfile(samples, sizes)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("  platform  %s\n\n", p.Platform)
+
+	fmt.Println("  LATENCY DISTRIBUTION")
+	fmt.Printf("    %-20s %10s %10s %10s %10s %10s\n", "operation", "mean", "p50", "p95", "p99", "max")
+	for _, l := range p.Latencies {
+		fmt.Printf("    %-20s %10s %10s %10s %10s %10s\n", l.Op,
+			round(l.Mean), round(l.P50), round(l.P95), round(l.P99), round(l.Max))
+	}
+
+	fmt.Println("\n  BATCHING CURVE   (how many ops share one pair of fdatasync barriers)")
+	fmt.Printf("    %-10s %16s %12s\n", "batch", "throughput", "per op")
+	for _, b := range p.BatchM {
+		fmt.Printf("    %-10d %16s %12s\n", b.Batch, verification.Rate(1, time.Duration(float64(time.Second)/b.OpsSec)), b.PerOp)
+	}
+
+	fmt.Println("\n  SCALING")
+	fmt.Printf("    %-12s %14s %10s %14s %10s %8s %8s\n",
+		"keys", "load", "read p50", "scan", "recovery", "depth", "file")
+	for _, s := range p.Scaling {
+		fmt.Printf("    %-12d %14s %10s %14s %10s %8d %7.1fM\n",
+			s.Keys,
+			verification.Rate(1, time.Duration(float64(time.Second)/s.LoadOpsS)),
+			s.ReadP50,
+			verification.Rate(1, time.Duration(float64(time.Second)/s.ScanKeysS)),
+			s.Recovery, s.Depth, s.FileMB)
+	}
+
+	if jsonPath != "" {
+		b, err := json.MarshalIndent(p, "", "  ")
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(jsonPath, b, 0o644); err != nil {
+			return err
+		}
+		fmt.Printf("\n  wrote %s\n", jsonPath)
+	}
+	return nil
+}
+
+func round(d time.Duration) string {
+	if d < time.Microsecond {
+		return d.String()
+	}
+	if d < time.Millisecond {
+		return d.Round(100 * time.Nanosecond).String()
+	}
+	return d.Round(time.Microsecond).String()
 }
 
 // cmdCrashWriter is the hidden victim process: it commits until killed.
