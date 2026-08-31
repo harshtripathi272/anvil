@@ -11,7 +11,7 @@
 # local tooling
 /.commandcode/
 
-# video tooling (Remotion skills) — never part of the zero-dependency product
+# video tooling (Remotion skills) — never part of the Anvil product
 /.agents/
 /.claude/
 /skills-lock.json

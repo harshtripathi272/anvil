@@ -118,12 +118,37 @@ workload on one machine.
 
 ---
 
+## 5. Three-way: Anvil, bbolt, SQLite
+
+A separate run compared all three engines under the identical workload:
+100,000 keys × 16-byte values, batch of 1,000, linux/amd64, default durability.
+Numbers differ from §4 because they come from a different run; the shape of the
+result is the same.
+
+![Anvil versus bbolt versus SQLite](assets/bench-three-way.svg)
+
+| Metric | Anvil | bbolt | SQLite |
+|---|---|---|---|
+| Batched load (1,000 ops/txn) | 132.8 K ops/s | **267.6 K ops/s** | 130.3 K ops/s |
+| Commit p50 | 2.65 ms | **1.28 ms** | 4.63 ms |
+| Random read p50 | 12.6 µs | **0.9 µs** | 6.6 µs |
+| Full scan | 16.6 M keys/s | **77.2 M keys/s** | 3.4 M keys/s |
+| Reopen after commit | **33.9 µs** | 105.4 µs | 270.1 µs |
+| File size | 8.7 MB | 16.0 MB | **3.5 MB** |
+
+- bbolt reads and scans fastest: it memory-maps the file, so a read is a
+  pointer dereference (see §4 for why Anvil does not take that shortcut).
+- Anvil opens a file faster than both and beats SQLite on batched saves and
+  scans; there is no log to inspect and no freelist to load.
+- SQLite wins on file size; its page format is denser for this workload.
+
 ## Raw evidence
 
 | File | Contents |
 |---|---|
 | [`linux/profile.json`](benchmarks/linux/profile.json) | Latency percentiles, batching curve, scaling curve |
 | [`linux/compare-bbolt.json`](benchmarks/linux/compare-bbolt.json) | Head-to-head results |
+| [`linux/compare-three-way.json`](benchmarks/linux/compare-three-way.json) | Three-way head-to-head results |
 | [`linux/bench.txt`](benchmarks/linux/bench.txt) | Standard benchmark, Linux |
 | [`bench.txt`](benchmarks/bench.txt) | Standard benchmark, Windows |
 

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="505" viewBox="0 0 660 505" font-family="ui-sans-serif, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>Anvil vs bbolt vs SQLite: same workload, one run</title>
+
+  <!-- heading -->
+  <text x="24" y="30" font-size="15" font-weight="600" fill="#64748b">Anvil vs bbolt vs SQLite</text>
+  <text x="24" y="50" font-size="12" fill="#94a3b8">one run, linux/amd64, 100,000 keys x 16-byte values, batch of 1,000, default durability</text>
+
+  <!-- panel 1: batched load (higher is better) -->
+  <text x="150" y="92" font-size="12" font-weight="600" fill="#64748b">Batched load, 1,000 ops per txn (K ops/s, higher is better)</text>
+  <text x="142" y="114.5" font-size="12" text-anchor="end" fill="#94a3b8">Anvil</text>
+  <rect x="150" y="102" width="179" height="16" rx="2" fill="#14b8a6"/>
+  <text x="337" y="114.5" font-size="12" fill="#94a3b8">132.8K</text>
+  <text x="142" y="138.5" font-size="12" text-anchor="end" fill="#94a3b8">bbolt</text>
+  <rect x="150" y="126" width="360" height="16" rx="2" fill="#64748b"/>
+  <text x="518" y="138.5" font-size="12" fill="#94a3b8">267.6K</text>
+  <text x="142" y="162.5" font-size="12" text-anchor="end" fill="#94a3b8">SQLite</text>
+  <rect x="150" y="150" width="175" height="16" rx="2" fill="#f59e0b"/>
+  <text x="333" y="162.5" font-size="12" fill="#94a3b8">130.3K</text>
+
+  <!-- panel 2: random read p50 (lower is better) -->
+  <text x="150" y="192" font-size="12" font-weight="600" fill="#64748b">Random read p50 (µs, lower is better)</text>
+  <text x="142" y="214.5" font-size="12" text-anchor="end" fill="#94a3b8">Anvil</text>
+  <rect x="150" y="202" width="360" height="16" rx="2" fill="#14b8a6"/>
+  <text x="518" y="214.5" font-size="12" fill="#94a3b8">12.6µs</text>
+  <text x="142" y="238.5" font-size="12" text-anchor="end" fill="#94a3b8">bbolt</text>
+  <rect x="150" y="226" width="25" height="16" rx="2" fill="#64748b"/>
+  <text x="183" y="238.5" font-size="12" fill="#94a3b8">0.88µs</text>
+  <text x="142" y="262.5" font-size="12" text-anchor="end" fill="#94a3b8">SQLite</text>
+  <rect x="150" y="250" width="189" height="16" rx="2" fill="#f59e0b"/>
+  <text x="347" y="262.5" font-size="12" fill="#94a3b8">6.6µs</text>
+
+  <!-- panel 3: full scan (higher is better) -->
+  <text x="150" y="292" font-size="12" font-weight="600" fill="#64748b">Full scan (M keys/s, higher is better)</text>
+  <text x="142" y="314.5" font-size="12" text-anchor="end" fill="#94a3b8">Anvil</text>
+  <rect x="150" y="302" width="77" height="16" rx="2" fill="#14b8a6"/>
+  <text x="235" y="314.5" font-size="12" fill="#94a3b8">16.6M</text>
+  <text x="142" y="338.5" font-size="12" text-anchor="end" fill="#94a3b8">bbolt</text>
+  <rect x="150" y="326" width="360" height="16" rx="2" fill="#64748b"/>
+  <text x="518" y="338.5" font-size="12" fill="#94a3b8">77.2M</text>
+  <text x="142" y="362.5" font-size="12" text-anchor="end" fill="#94a3b8">SQLite</text>
+  <rect x="150" y="350" width="16" height="16" rx="2" fill="#f59e0b"/>
+  <text x="174" y="362.5" font-size="12" fill="#94a3b8">3.4M</text>
+
+  <!-- panel 4: reopen (lower is better) -->
+  <text x="150" y="392" font-size="12" font-weight="600" fill="#64748b">Reopen after commit (µs, lower is better)</text>
+  <text x="142" y="414.5" font-size="12" text-anchor="end" fill="#94a3b8">Anvil</text>
+  <rect x="150" y="402" width="45" height="16" rx="2" fill="#14b8a6"/>
+  <text x="203" y="414.5" font-size="12" fill="#94a3b8">33.9µs</text>
+  <text x="142" y="438.5" font-size="12" text-anchor="end" fill="#94a3b8">bbolt</text>
+  <rect x="150" y="426" width="141" height="16" rx="2" fill="#64748b"/>
+  <text x="299" y="438.5" font-size="12" fill="#94a3b8">105.4µs</text>
+  <text x="142" y="462.5" font-size="12" text-anchor="end" fill="#94a3b8">SQLite</text>
+  <rect x="150" y="450" width="360" height="16" rx="2" fill="#f59e0b"/>
+  <text x="518" y="462.5" font-size="12" fill="#94a3b8">270.1µs</text>
+
+  <!-- footer -->
+  <text x="24" y="490" font-size="11" fill="#94a3b8">Bars scale per panel; the longest bar is that panel's maximum. Raw data: docs/benchmarks/linux/compare-three-way.json</text>
+</svg>
