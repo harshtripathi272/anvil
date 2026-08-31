@@ -7,7 +7,8 @@ replaced before submission.
 |---|---|
 | URL | `DEMO_VIDEO_URL_PENDING` |
 | Length | 5 minutes (hard limit) |
-| Script | [DEMO.md](DEMO.md) |
+| Script | [VIDEO-SCRIPT.md](VIDEO-SCRIPT.md) — narration + recording notes |
+| Animated cut | `anvil-video/src/v2`, 17 scenes, 4:56 |
 
 ## What to replace when the video exists
 
