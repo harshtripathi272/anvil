@@ -31,6 +31,8 @@ page-cache misses: Anvil has **no page cache**, so every node access is a
 
 ## 2. Batching curve
 
+![Batching curve](assets/bench-batching.svg)
+
 How many operations share one pair of durability barriers:
 
 | Batch size | Throughput | Per operation |
@@ -46,6 +48,8 @@ once fsync stops being the bottleneck. This is the single most useful thing to
 know when using Anvil: batch your writes.
 
 ## 3. Scaling
+
+![Recovery is constant as the dataset grows](assets/bench-recovery.svg)
 
 | Keys | Load | Read p50 | Scan | Recovery | Leaf depth | File |
 |---|---|---|---|---|---|---|
@@ -73,6 +77,8 @@ which Anvil claims.
 
 Identical workload: 100,000 keys × 16-byte values, batch 1,000, both at default
 durability, same machine, same run.
+
+![Anvil versus bbolt](assets/bench-vs-bbolt.svg)
 
 | Metric | Anvil | bbolt | Anvil relative |
 |---|---|---|---|
