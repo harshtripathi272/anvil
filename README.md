@@ -1,5 +1,4 @@
 # Anvil
-
 **A crash-consistent embedded key/value database, built entirely from the Go
 standard library — and proven by destruction.**
 
