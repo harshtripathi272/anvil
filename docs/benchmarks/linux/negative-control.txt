@@ -1,0 +1,18 @@
+ANVIL TORTURE  seed 430916313
+
+  cycles completed       1
+  crashes injected       1
+  recovery failures      1
+  acked writes lost      0
+  partial txns observed  0
+  invariant violations   0
+
+  commit seams exercised
+    before_meta_sync     1
+
+  RESULT: FAIL
+    cycle 0, seam before_meta_sync, crash style persist-meta-only
+    recovery open failed: anvil: database corrupt
+
+  EXPECTED FAILURE: with the pre-metadata durability barrier removed,
+  the verifier caught the resulting data loss. The test has teeth.

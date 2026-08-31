@@ -1,0 +1,74 @@
+{
+  "platform": "linux/amd64",
+  "latencies": [
+    {
+      "op": "single-key commit",
+      "samples": 1500,
+      "mean": 1530442,
+      "p50": 1458330,
+      "p95": 2181433,
+      "p99": 2619969,
+      "max": 5970460
+    },
+    {
+      "op": "random point read",
+      "samples": 15000,
+      "mean": 15009,
+      "p50": 10527,
+      "p95": 24215,
+      "p99": 134569,
+      "max": 1505376
+    }
+  ],
+  "batch_curve": [
+    {
+      "batch": 1,
+      "ops_sec": 646.7112395768065,
+      "per_op": "1.546ms"
+    },
+    {
+      "batch": 10,
+      "ops_sec": 6786.790178836747,
+      "per_op": "147µs"
+    },
+    {
+      "batch": 100,
+      "ops_sec": 51680.47808493978,
+      "per_op": "19µs"
+    },
+    {
+      "batch": 1000,
+      "ops_sec": 183870.2304223115,
+      "per_op": "5µs"
+    },
+    {
+      "batch": 10000,
+      "ops_sec": 213026.99029599217,
+      "per_op": "5µs"
+    }
+  ],
+  "scaling": [
+    {
+      "keys": 10000,
+      "load_ops_sec": 182942.2756200641,
+      "read_p50": "5.925µs",
+      "scan_keys_sec": 20855361.80924435,
+      "recovery": "34µs",
+      "check": "0s",
+      "file_mb": 0.39453125,
+      "leaf_depth": 1,
+      "pages": 80
+    },
+    {
+      "keys": 100000,
+      "load_ops_sec": 186248.56065017034,
+      "read_p50": "9.134µs",
+      "scan_keys_sec": 19867152.32582766,
+      "recovery": "34µs",
+      "check": "6ms",
+      "file_mb": 4.171875,
+      "leaf_depth": 2,
+      "pages": 793
+    }
+  ]
+}

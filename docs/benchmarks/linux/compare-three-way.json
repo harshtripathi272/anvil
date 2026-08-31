@@ -1,0 +1,35 @@
+{
+  "anvil": {
+    "engine": "Anvil",
+    "load_ops_sec": 132804.26381156908,
+    "commit_p50_us": 2654.82,
+    "commit_p99_us": 3980.449,
+    "read_p50_us": 12.572,
+    "read_p99_us": 192.043,
+    "scan_keys_sec": 16551144.1906639,
+    "reopen_us": 33.856,
+    "file_mb": 8.6953125
+  },
+  "bbolt": {
+    "engine": "bbolt",
+    "load_ops_sec": 267578.5565488146,
+    "commit_p50_us": 1277.631,
+    "commit_p99_us": 2475.698,
+    "read_p50_us": 0.88,
+    "read_p99_us": 4.106,
+    "scan_keys_sec": 77166667.69247814,
+    "reopen_us": 105.426,
+    "file_mb": 16
+  },
+  "sqlite": {
+    "engine": "SQLite",
+    "load_ops_sec": 130321.54032950327,
+    "commit_p50_us": 4629.183,
+    "commit_p99_us": 7517.649,
+    "read_p50_us": 6.596,
+    "read_p99_us": 32.11,
+    "scan_keys_sec": 3407300.6324873986,
+    "reopen_us": 270.085,
+    "file_mb": 3.515625
+  }
+}
