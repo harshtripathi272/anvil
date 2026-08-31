@@ -8,7 +8,7 @@ standard library, and proven by destruction.**
 [![Go](https://img.shields.io/badge/go-1.27-00ADD8)](https://go.dev)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-[![Watch the demo](https://img.youtube.com/vi/FmUbg7NCIro/maxresdefault.jpg)](https://youtu.be/FmUbg7NCIro)
+[![Watch the demo](docs/assets/demo-thumbnail.png)](https://youtu.be/FmUbg7NCIro)
 
 **[Watch the demo](https://youtu.be/FmUbg7NCIro)** (2:37). Shot list in
 [docs/DEMO.md](docs/DEMO.md), narration and recording notes in
